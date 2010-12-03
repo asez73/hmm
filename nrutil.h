@@ -10,14 +10,18 @@
 **      $Id: nrutil.h,v 1.2 1998/02/19 16:32:42 kanungo Exp kanungo $
 */
 
+
 float *vector();
-float **matrix();
-float **convert_matrix();
+float *matrix();
+float *convert_matrix();
+
 double *dvector();
-double **dmatrix();
+double *dmatrix();
+
 int *ivector();
-int **imatrix();
-float **submatrix();
+int *imatrix();
+float *submatrix();
+
 void free_vector();
 void free_dvector();
 void free_ivector();
