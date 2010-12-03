@@ -93,7 +93,7 @@ void Viterbi(HMM *phmm, int T, int *O, double **delta, int **psi,
 
   /* 2. Recursion */
 
-  /// transpose
+  /// transpose 
   static int is_transposed = 0;
   if ( !is_transposed )
     {
@@ -112,8 +112,7 @@ void Viterbi(HMM *phmm, int T, int *O, double **delta, int **psi,
   /// delta stires the best value
   /// psi stores the back tracking state
   for (t = 2; t <= T; t++) 
-    {
-     
+    {     
 #pragma omp parallel for private(i)
       for (j = 1; j <= phmm->N; j++) 
       //for (i = 1; i <= phmm->N; i++) 

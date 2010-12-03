@@ -12,6 +12,8 @@
 #include "hmm.h"
 static char rcsid[] = "$Id: forward.c,v 1.2 1998/02/19 12:42:31 kanungo Exp kanungo $";
 
+#ifdef __GPU
+
 void Forward(HMM *phmm, int T, int *O, double **alpha, double *pprob)
 {
   int     i, j;   /* state indices */
@@ -45,6 +47,43 @@ void Forward(HMM *phmm, int T, int *O, double **alpha, double *pprob)
     *pprob += alpha[T][i];
  
 }
+
+#else
+
+void Forward(HMM *phmm, int T, int *O, double **alpha, double *pprob)
+{
+  int     i, j;   /* state indices */
+  int     t;      /* time index */
+ 
+  double sum;     /* partial sum */
+ 
+  /* 1. Initialization */
+ 
+  for (i = 1; i <= phmm->N; i++)
+    alpha[1][i] = phmm->pi[i]* phmm->B[i][O[1]];
+ 
+  /* 2. Induction */
+ 
+  for (t = 1; t < T; t++) {
+    for (j = 1; j <= phmm->N; j++) {
+      sum = 0.0;
+
+      /// TODO: transpose A
+      /// this is a dot product, consider MKL
+      for (i = 1; i <= phmm->N; i++)
+	sum += alpha[t][i]* (phmm->A[i][j]);
+ 
+      alpha[t+1][j] = sum*(phmm->B[j][O[t+1]]);
+    }
+  }
+ 
+  /* 3. Termination */
+  *pprob = 0.0;
+  for (i = 1; i <= phmm->N; i++)
+    *pprob += alpha[T][i];
+}
+
+#endif
 
 void ForwardWithScale(HMM *phmm, int T, int *O, double **alpha, 
 		      double *scale, double *pprob)
