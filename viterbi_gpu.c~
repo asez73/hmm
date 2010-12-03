@@ -1,0 +1,302 @@
+/*
+**      Author: Tapas Kanungo, kanungo@cfar.umd.edu
+**      Date:   15 December 1997
+**      File:   viterbi.c
+**      Purpose: Viterbi algorithm for computing the maximum likelihood
+**		state sequence and probablity of observing a sequence
+**		given the model. 
+**      Organization: University of Maryland
+**
+**      $Id: viterbi.c,v 1.1 1999/05/06 05:25:37 kanungo Exp kanungo $
+*/
+
+/*
+**      Edited by: Philip Yang, Juncheng Chen
+**      Date:   2 Dec 2010
+**      File:   viterbi_gpu.c
+**      Purpose: Viterbi algorithm for computing the maximum likelihood
+**		state sequence and probablity of observing a sequence
+**		given the model. The new code is supposed to run on
+**              nVidia's CUDA capable hardware
+**      Organization: University of Maryland
+**
+*/
+
+
+#include <math.h>
+#include "hmm.h"
+#include "nrutil.h"
+#include "cuda_runtime.h"
+//#include "viterbi_kernel.cu"
+
+static char rcsid[] = "$Id: viterbi.c,v 1.1 1999/05/06 05:25:37 kanungo Exp kanungo $";
+
+#define VITHUGE  100000000000.0
+
+/**
+ *\brief Viterbi_GPU
+ *
+ *\param O observation sequence
+ *\param 
+ */
+#ifdef __GPU
+void Viterbi(HMM *phmm, int T, int *O, double **delta, int **psi, 
+	     int *q, double *pprob)
+{
+  // initialize the data on GPU
+  int N = phmm->N;
+  int M = phmm->M;
+
+  HMM* g_phmm;
+  double **g_A, **g_B, **g_pi, **g_delta;
+  int **g_psi, *g_q;
+
+  size_t pitch_A; 
+  cudaMallocPitch((void**)&g_A, &pitch_A, sizeof(double)*N, sizeof(double)*N);  
+  /* cudaMalloc((void**)&g_B, sizeof(double)*N*M); */
+  /* cudaMalloc((void**)&g_pi, sizeof(double)*N); */
+  /* cudaMalloc((void**)&g_delta, sizeof(double)*N*T); */
+  /* cudaMalloc((void**)&g_psi, sizeof(int)*N*T); */
+  
+  // copy the data to the device  
+  //cudaMemcpy2(g_A, (void*)phmm->A, sizeof(double)*N*N, cudaMemcpyHostToDevice);
+  /* cudaMemcpy(g_B, (void*)phmm->B, sizeof(double)*M*N, cudaMemcpyHostToDevice); */
+  /* cudaMemcpy(g_pi, (void*)phmm->pi, sizeof(double)*N, cudaMemcpyHostToDevice); */
+  /* cudaMemcpy(g_delta, (void*)delta, sizeof(double)*N*T, cudaMemcpyHostToDevice); */
+  /* cudaMemcpy(g_psi, (void*)psi, sizeof(double)*N*T, cudaMemcpyHostToDevice); */
+
+  /* g_phmm->M = M; */
+  /* g_phmm->N = N; */
+  /* g_phmm->A = g_A; */
+  /* g_phmm->B = g_B; */
+  /* g_phmm->pi = g_pi; */
+
+
+  ////////////////////////////////////////////////////////////////
+  /// old CPU code, help only the test here
+  ////////////////////////////////////////////////////////////////
+  fprintf(stderr, "\t\tRunning GPU accelerated version\n");
+
+  int 	i, j;	/* state indices */
+  int  	t;	/* time index */	
+
+  int	maxvalidx;
+  double	maxval, val;
+
+  /* 1. Initialization  */
+	
+  for (i = 1; i <= phmm->N; i++) 
+    {
+      delta[1][i] = phmm->pi[i] * (phmm->B[i][O[1]]);
+      psi[1][i] = 0;
+    }	
+
+  /* 2. Recursion */
+
+  /// transpose
+  static int is_transposed = 0;
+  if ( !is_transposed )
+    {
+      for (i=1; i<= phmm->N; ++i)
+  	for (j=1; j<= phmm->N; ++j)
+  	  {
+  	    double tmp = phmm->A[i][j];
+  	    phmm->A[i][j] = phmm->A[j][i];
+  	    phmm->A[j][i] = tmp;
+  	  }
+      is_transposed = 1;
+    }
+  
+  /// insert the memory operations here
+  /// delta stires the best value
+  /// psi stores the back tracking state
+  for (t = 2; t <= T; t++) 
+    {
+      for (j = 1; j <= phmm->N; j++) 
+      //for (i = 1; i <= phmm->N; i++) 
+	{
+	  maxval = 0.0;
+	  maxvalidx = 1;	
+	  
+	  /// find the largest value
+	  /// we should use the transposed matrix A
+	  /// instead of the orginal version due to 
+	  for (i = 1; i <= phmm->N; i++) 
+	    //for (j = 1; j <= phmm->N; j++) 
+	    {
+	      //val = delta[t-1][i]*(phmm->A[i][j]);
+	      val = delta[t-1][i]*(phmm->A[j][i]);
+	      if (val > maxval) 
+		{
+		  maxval = val;	
+		  maxvalidx = i;	
+		}
+	    }
+	  
+	  delta[t][j] = maxval*(phmm->B[j][O[t]]);
+	  psi[t][j] = maxvalidx; 	  
+	}
+    }
+  
+  /* 3. Termination */
+
+  *pprob = 0.0;
+  q[T] = 1;
+  for (i = 1; i <= phmm->N; i++) 
+    {
+      if (delta[T][i] > *pprob) 
+	{
+	  *pprob = delta[T][i];	
+	  q[T] = i;
+	}
+    }
+  
+
+  /* 4. Path (state sequence) backtracking */
+
+  for (t = T - 1; t >= 1; t--)
+    q[t] = psi[t+1][q[t+1]];
+
+
+  //viterbi_kernel_small<<<1,1>>>(g_phmm, T, )
+}
+
+#else 
+
+void Viterbi(HMM *phmm, int T, int *O, double **delta, int **psi, 
+	     int *q, double *pprob)
+{
+  int 	i, j;	/* state indices */
+  int  	t;	/* time index */	
+
+  int	maxvalidx;
+  double	maxval, val;
+
+  printf("\t\tRunning CPU accelerated version\n");
+
+  /* 1. Initialization  */
+	
+  for (i = 1; i <= phmm->N; i++) {
+    delta[1][i] = phmm->pi[i] * (phmm->B[i][O[1]]);
+    psi[1][i] = 0;
+  }	
+
+  /* 2. Recursion */
+	
+  for (t = 2; t <= T; t++) 
+    {
+      for (j = 1; j <= phmm->N; j++) 
+	{
+	  maxval = 0.0;
+	  maxvalidx = 1;	
+	  for (i = 1; i <= phmm->N; i++) 
+	    {
+	      val = delta[t-1][i]*(phmm->A[i][j]);
+	      if (val > maxval) 
+		{
+		  maxval = val;	
+		  maxvalidx = i;	
+		}
+	    }
+	  
+	  delta[t][j] = maxval*(phmm->B[j][O[t]]);
+	  psi[t][j] = maxvalidx; 	  
+	}
+    }
+  
+  /* 3. Termination */
+
+  *pprob = 0.0;
+  q[T] = 1;
+  for (i = 1; i <= phmm->N; i++) 
+    {
+      if (delta[T][i] > *pprob) 
+	{
+	  *pprob = delta[T][i];	
+	  q[T] = i;
+	}
+    }
+  
+
+  /* 4. Path (state sequence) backtracking */
+
+  for (t = T - 1; t >= 1; t--)
+    q[t] = psi[t+1][q[t+1]];
+
+}
+
+#endif
+
+
+void ViterbiLog(HMM *phmm, int T, int *O, double **delta, int **psi,
+		int *q, double *pprob)
+{
+  int     i, j;   /* state indices */
+  int     t;      /* time index */
+ 
+  int     maxvalind;
+  double  maxval, val;
+  double  **biot;
+
+  /* 0. Preprocessing */
+
+  for (i = 1; i <= phmm->N; i++) 
+    phmm->pi[i] = log(phmm->pi[i]);
+  for (i = 1; i <= phmm->N; i++) 
+    for (j = 1; j <= phmm->N; j++) {
+      phmm->A[i][j] = log(phmm->A[i][j]);
+    }
+
+  biot = dmatrix(1, phmm->N, 1, T);
+  for (i = 1; i <= phmm->N; i++) 
+    for (t = 1; t <= T; t++) {
+      biot[i][t] = log(phmm->B[i][O[t]]);
+    }
+ 
+  /* 1. Initialization  */
+ 
+  for (i = 1; i <= phmm->N; i++) {
+    delta[1][i] = phmm->pi[i] + biot[i][1];
+    psi[1][i] = 0;
+  }
+ 
+  /* 2. Recursion */
+ 
+  for (t = 2; t <= T; t++) {
+    for (j = 1; j <= phmm->N; j++) {
+      maxval = -VITHUGE;
+      maxvalind = 1;
+      for (i = 1; i <= phmm->N; i++) {
+	val = delta[t-1][i] + (phmm->A[i][j]);
+	if (val > maxval) {
+	  maxval = val;
+	  maxvalind = i;
+	}
+      }
+ 
+      delta[t][j] = maxval + biot[j][t]; 
+      psi[t][j] = maxvalind;
+ 
+    }
+  }
+ 
+  /* 3. Termination */
+ 
+  *pprob = -VITHUGE;
+  q[T] = 1;
+  for (i = 1; i <= phmm->N; i++) {
+    if (delta[T][i] > *pprob) {
+      *pprob = delta[T][i];
+      q[T] = i;
+    }
+  }
+ 
+ 
+  /* 4. Path (state sequence) backtracking */
+
+  for (t = T - 1; t >= 1; t--)
+    q[t] = psi[t+1][q[t+1]];
+
+}
+ 
+
