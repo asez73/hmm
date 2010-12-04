@@ -46,7 +46,7 @@ void Viterbi(HMM *phmm, int T, int *O, real **delta, int **psi,
 	      val = delta[t-1][i]*(phmm->A[i][j]);
 	      if (val > maxval) {
 		maxval = val;	
-	  maxvalind = i;	
+		maxvalind = i;	
 	      }
       }
 			
