@@ -61,6 +61,10 @@ int GenInitalState(HMM *phmm);
 int GenNextState(HMM *phmm, int q_t);
 int GenSymbol(HMM *phmm, int q_t);
 
+  
+/// generate a random HMM model
+void GenRandHMM(HMM *phmm);
+
  
 void Forward(HMM *phmm, int T, int *O, real **alpha, real *pprob);
 void ForwardWithScale(HMM *phmm, int T, int *O, real **alpha,

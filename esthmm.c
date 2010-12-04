@@ -100,16 +100,18 @@ int main (int argc, char **argv)
      iii) with a specific random model by specifying N, M
      and seed on the command line. 
   */
-
-  if (iflg) {
-    /* model being read from a file */
-    if (((sflg || nflg) || mflg)) errflg++;
-  }
-  else if ((!nflg) || (!mflg)) { 
-    /* Model not being intialied from file */ 
-    /* both N and M should be specified */
-    errflg++; 
-  }
+  
+  if (iflg) 
+    {
+      /* model being read from a file */
+      if (((sflg || nflg) || mflg)) errflg++;
+    }
+  else if ((!nflg) || (!mflg)) 
+    { 
+      /* Model not being intialied from file */ 
+      /* both N and M should be specified */
+      errflg++; 
+    }
 
 	
   if ((argc - optind) != 1) errflg++; /* number or arguments not okay */

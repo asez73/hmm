@@ -51,7 +51,7 @@ extern "C"
 //#ifdef __GPU
 
 //extern "C"
-void Viterbi(HMM *phmm, int T, int *O, real **delta, int **psi, 
+void ViterbiGPU(HMM *phmm, int T, int *O, real **delta, int **psi, 
 	     int *q, real *pprob)
 {
   int i, j;	/* state indices */
@@ -99,7 +99,6 @@ void Viterbi(HMM *phmm, int T, int *O, real **delta, int **psi,
 
   /// timing starts from here, or later if you wish...
   /// initialize the data on GPU
-#ifdef __GPU
   printf("\tRunning GPU accelerated version\n");
   real *g_A, *g_B, *g_delta;
   int *g_psi;
@@ -131,63 +130,14 @@ void Viterbi(HMM *phmm, int T, int *O, real **delta, int **psi,
   /// ViterbiKernel(int Symbol, real* delta_prev, real* delta_curr, real* psi_curr, real* A, real *B, size_t N)
   for (t=1; t<T; ++t)
     {
-      ViterbiKernel<<<N, 1>>>(O[t+1], (g_delta + (t-1)*N), (g_delta + t*N), (g_psi + t*N), g_A, g_B, N);
+      //ViterbiKernelv1<<<N/32, 32>>>(O[t+1], (g_delta + (t-1)*N), (g_delta + t*N), (g_psi + t*N), g_A, g_B, N);
+      ViterbiKernel<<<N/32, 32>>>(O[t+1], (g_delta + (t-1)*N), (g_delta + t*N), (g_psi + t*N), g_A, g_B, N);
     }
 
   /* cudaMemcpy2D(h_delta, sizeof(real)*N, g_delta, pitch_delta, sizeof(real)*N, N, cudaMemcpyDeviceToHost); */
   /* cudaMemcpy2D(h_psi, sizeof(int)*N, g_psi, pitch_psi, sizeof(int)*N, N, cudaMemcpyDeviceToHost); */
   cudaMemcpy(h_delta, g_delta, sizeof(real)*N*T, cudaMemcpyDeviceToHost);
   cudaMemcpy(h_psi, g_psi, sizeof(int)*N*T, cudaMemcpyDeviceToHost);
-
-#else
-  ////////////////////////////////////////////////////////////////
-  /// old CPU code, help only the test here
-  ////////////////////////////////////////////////////////////////
-
-  /* 2. Recursion */  
-
-  /// insert the memory operations here
-  /// delta stores the best value
-  /// psi stores the back tracking state
-  real val;
-  for (t = 2; t <= T; t++)
-    {
-      //#pragma omp parallel for private(i)
-      for (j = 1; j <= N; j++)
-  	//for (i = 1; i <= phmm->N; i++)
-  	{
-  	  real maxval = 0.0;
-  	  int maxvalidx = 1;
-	  
-  	  /// find the largest value
-  	  /// we should use the transposed matrix A
-  	  /// instead of the orginal version due to
-
-  	  ///use SIMD to vectorize inner-most loop
-  	  for (i = 1; i <= N; i++)
-  	    //for (j = 1; j <= phmm->N; j++)
-  	    {
-  	      //val = delta[t-1][i]*(phmm->A[i][j]);
-  	      //val = delta[t-1][i]* h_A[(i-1)*N + j-1];
-  	      val = h_delta[(t-2)*N + i-1]* h_A[(i-1)*N + j-1];
-
-  	      //val = delta[t-1][i]*(phmm->A[j][i]);
-
-  	      if (val > maxval)
-  		{
-  		  maxval = val;
-  		  maxvalidx = i;
-  		}
-  	    }
-	  
-  	  //delta[t][j] = maxval*(phmm->B[j][O[t]]);
-  	  h_delta[(t-1)*N + j-1] = maxval*( h_B[(j-1)*M + (O[t]-1)] );
-
-  	  //psi[t][j] = maxvalidx;
-  	  h_psi[(t-1)*N + j-1] = maxvalidx;
-  	}
-    }
-#endif  
 
   /* 3. Termination */
 
@@ -223,7 +173,7 @@ void Viterbi(HMM *phmm, int T, int *O, real **delta, int **psi,
 }
 
 //extern "C"
-void ViterbiLog(HMM *phmm, int T, int *O, real **delta, int **psi,
+void ViterbiLogGPU(HMM *phmm, int T, int *O, real **delta, int **psi,
 		int *q, real *pprob)
 {
   /* int     i, j;   /\* state indices *\/ */

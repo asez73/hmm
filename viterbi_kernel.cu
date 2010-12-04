@@ -79,11 +79,12 @@ __global__ void ViterbiKernelv1(int Symbol, real* delta_prev, real* delta_curr, 
   int pb_stride = gridDim.x;
   //int stride = num_threads / size;
 
-  const int num_threads = 2;
+  /// note that this kernel only takes 32 threads 
+  const int num_threads = 32;
   __shared__ real maxvalist[num_threads];
   __shared__ int maxvalidx_list[num_threads];
 
-  // each thread to be fixed at the tid-th column
+  /// each thread to be fixed at the tid-th column
   register real maxval = 0.0;
   register real maxvalidx = 1;
     
