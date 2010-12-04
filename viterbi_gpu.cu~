@@ -27,10 +27,14 @@
 #include "hmm.h"
 #include "nrutil.h"
 #include "cuda_runtime.h"
-//#include "viterbi_kernel.cu"
+#include "viterbi_kernel.cu"
 
 static char rcsid[] = "$Id: viterbi.c,v 1.1 1999/05/06 05:25:37 kanungo Exp kanungo $";
 
+/* extern "C" */
+/* __device__ void ViterbiKernel(int Symbol, real* delta_prev, real* delta_curr, real* psi_curr, real* A, real *B, size_t N) */
+
+//#define real float
 #define VITHUGE  100000000000.0
 
 /**
@@ -40,13 +44,15 @@ static char rcsid[] = "$Id: viterbi.c,v 1.1 1999/05/06 05:25:37 kanungo Exp kanu
  *\param 
  */
 #ifdef __GPU
-void Viterbi(HMM *phmm, int T, int *O, double **delta, int **psi, 
-	     int *q, double *pprob)
+
+//extern "C"
+void Viterbi(HMM *phmm, int T, int *O, real **delta, int **psi, 
+	     int *q, real *pprob)
 {
   int i, j;	/* state indices */
   int t;	/* time index */	
 
-  double  val;
+  real  val;
 
   /* 1. Initialization  */
 	
@@ -62,12 +68,12 @@ void Viterbi(HMM *phmm, int T, int *O, double **delta, int **psi,
   int N = phmm->N;
   int M = phmm->M;
 
-  double *h_A, *h_B, *h_delta;
+  real *h_A, *h_B, *h_delta;
   int *h_psi;
 
-  h_A = (double*)malloc(sizeof(double)*N*N);
-  h_B = (double*)malloc(sizeof(double)*N*M);
-  h_delta = (double*)malloc(sizeof(double)*T*N); 
+  h_A = (real*)malloc(sizeof(real)*N*N);
+  h_B = (real*)malloc(sizeof(real)*N*M);
+  h_delta = (real*)malloc(sizeof(real)*T*N); 
   h_psi = (int*)malloc(sizeof(int)*T*N);
   
   for ( i=0; i<N; ++i )
@@ -89,83 +95,79 @@ void Viterbi(HMM *phmm, int T, int *O, double **delta, int **psi,
   /// timing starts from here, or later if you wish...
   /// initialize the data on GPU
   printf("\tRunning GPU accelerated version\n");
-  double *g_A, *g_B, *g_pi, *g_delta;
+  real *g_A, *g_B, *g_pi, *g_delta;
   int *g_psi;
 
-  size_t pitch_A, pitch_B, pitch_delta, pitch_psi; 
-  cudaMallocPitch((void**)&g_A, &pitch_A, sizeof(double)*N, sizeof(double)*N);  
-  cudaMallocPitch((void**)&g_B, &pitch_B, sizeof(double)*N, sizeof(double)*M);
-  cudaMallocPitch((void**)&g_delta, &pitch_delta, sizeof(double)*T, sizeof(double)*N);
+  size_t pitch_A, pitch_B, pitch_delta, pitch_psi;
+  cudaMallocPitch((void**)&g_A, &pitch_A, sizeof(real)*N, sizeof(real)*N);
+  cudaMallocPitch((void**)&g_B, &pitch_B, sizeof(real)*N, sizeof(real)*M);
+  cudaMallocPitch((void**)&g_delta, &pitch_delta, sizeof(real)*T, sizeof(real)*N);
   cudaMallocPitch((void**)&g_psi, &pitch_psi, sizeof(int)*T, sizeof(int)*N);
  
   // transfer the memory to system
-  cudaMemcpy2D(g_A, pitch_A, h_A, sizeof(double)*N, sizeof(double)*N, N, cudaMemcpyHostToDevice);
-  cudaMemcpy2D(g_B, pitch_B, h_B, sizeof(double)*M, sizeof(double)*M, N, cudaMemcpyHostToDevice);
-  cudaMemcpy2D(g_delta, pitch_delta, h_delta, sizeof(double)*N, sizeof(double)*N, T, cudaMemcpyHostToDevice);
-  cudaMemcpy2D(g_psi, pitch_psi, h_psi, sizeof(double)*N, sizeof(int)*N, T, cudaMemcpyHostToDevice);
+  cudaMemcpy2D(g_A, pitch_A, h_A, sizeof(real)*N, sizeof(real)*N, N, cudaMemcpyHostToDevice);
+  cudaMemcpy2D(g_B, pitch_B, h_B, sizeof(real)*M, sizeof(real)*M, N, cudaMemcpyHostToDevice);
+  cudaMemcpy2D(g_delta, pitch_delta, h_delta, sizeof(real)*N, sizeof(real)*N, T, cudaMemcpyHostToDevice);
+  cudaMemcpy2D(g_psi, pitch_psi, h_psi, sizeof(int)*N, sizeof(int)*N, T, cudaMemcpyHostToDevice);
   
+  /// function signature
+  /// ViterbiKernel(int Symbol, real* delta_prev, real* delta_curr, real* psi_curr, real* A, real *B, size_t N)
+  for (t=1; t<T; ++t)
+    {
+      ViterbiKernel<<<N, 1>>>(O[t+1], (g_delta + (t-1)*N), (g_delta + t*N), (g_psi + t*N), g_A, g_B, N);
+    }
+
+  cudaMemcpy2D(h_A, sizeof(real)*N, g_A, pitch_A, sizeof(real)*N, N, cudaMemcpyDeviceToHost);
+  cudaMemcpy2D(h_B, sizeof(real)*M, g_B, pitch_B, sizeof(real)*M, N, cudaMemcpyDeviceToHost);
+  cudaMemcpy2D(h_delta, sizeof(real)*N, g_delta, pitch_delta, sizeof(real)*N, N, cudaMemcpyDeviceToHost);
+  cudaMemcpy2D(h_psi, sizeof(int)*N, g_psi, pitch_psi, sizeof(int)*N, N, cudaMemcpyDeviceToHost);
 
   ////////////////////////////////////////////////////////////////
   /// old CPU code, help only the test here
   ////////////////////////////////////////////////////////////////
 
-  /* 2. Recursion */
-
-  /* /// transpose  */
-  /* static int is_transposed = 0; */
-  /* if ( !is_transposed ) */
-  /*   { */
-  /*     for (i=1; i<= phmm->N; ++i) */
-  /* 	for (j=1; j<= phmm->N; ++j) */
-  /* 	  { */
-  /* 	    double tmp = phmm->A[i][j]; */
-  /* 	    phmm->A[i][j] = phmm->A[j][i]; */
-  /* 	    phmm->A[j][i] = tmp; */
-  /* 	  } */
-  /*     is_transposed = 1; */
-  /*   } */
-  
+  /* 2. Recursion */  
 
   /// insert the memory operations here
-  /// delta stires the best value
+  /// delta stores the best value
   /// psi stores the back tracking state
-  for (t = 2; t <= T; t++) 
-    {     
-      //#pragma omp parallel for private(i)
-      for (j = 1; j <= N; j++) 
-      //for (i = 1; i <= phmm->N; i++) 
-	{
-	  double maxval = 0.0;
-	  int maxvalidx = 1;	
+  /* for (t = 2; t <= T; t++)  */
+  /*   {      */
+  /*     //#pragma omp parallel for private(i) */
+  /*     for (j = 1; j <= N; j++)  */
+  /* 	//for (i = 1; i <= phmm->N; i++)  */
+  /* 	{ */
+  /* 	  real maxval = 0.0; */
+  /* 	  int maxvalidx = 1;	 */
 	  
-	  /// find the largest value
-	  /// we should use the transposed matrix A
-	  /// instead of the orginal version due to 
+  /* 	  /// find the largest value */
+  /* 	  /// we should use the transposed matrix A */
+  /* 	  /// instead of the orginal version due to  */
 
-	  ///use SIMD to vectorize inner-most loop
-	  for (i = 1; i <= N; i++) 
-	    //for (j = 1; j <= phmm->N; j++) 
-	    {
-	      //val = delta[t-1][i]*(phmm->A[i][j]);
-	      //val = delta[t-1][i]* h_A[(i-1)*N + j-1];
-	      val = h_delta[(t-2)*N + i-1]* h_A[(i-1)*N + j-1];
+  /* 	  ///use SIMD to vectorize inner-most loop */
+  /* 	  for (i = 1; i <= N; i++)  */
+  /* 	    //for (j = 1; j <= phmm->N; j++)  */
+  /* 	    { */
+  /* 	      //val = delta[t-1][i]*(phmm->A[i][j]); */
+  /* 	      //val = delta[t-1][i]* h_A[(i-1)*N + j-1]; */
+  /* 	      val = h_delta[(t-2)*N + i-1]* h_A[(i-1)*N + j-1]; */
 
-	      //val = delta[t-1][i]*(phmm->A[j][i]);
+  /* 	      //val = delta[t-1][i]*(phmm->A[j][i]); */
 
-	      if (val > maxval) 
-		{
-		  maxval = val;	
-		  maxvalidx = i;	
-		}
-	    }
+  /* 	      if (val > maxval)  */
+  /* 		{ */
+  /* 		  maxval = val;	 */
+  /* 		  maxvalidx = i;	 */
+  /* 		} */
+  /* 	    } */
 	  
-	  //delta[t][j] = maxval*(phmm->B[j][O[t]]);
-	  h_delta[(t-1)*N + j-1] = maxval*( h_B[(j-1)*M + (O[t]-1)] );
+  /* 	  //delta[t][j] = maxval*(phmm->B[j][O[t]]); */
+  /* 	  h_delta[(t-1)*N + j-1] = maxval*( h_B[(j-1)*M + (O[t]-1)] ); */
 
-	  //psi[t][j] = maxvalidx; 	  
-	  h_psi[(t-1)*N + j-1] = maxvalidx; 	  
-	}
-    }
+  /* 	  //psi[t][j] = maxvalidx; 	   */
+  /* 	  h_psi[(t-1)*N + j-1] = maxvalidx; 	   */
+  /* 	} */
+  /*   } */
   
   /* 3. Termination */
 
@@ -203,14 +205,15 @@ void Viterbi(HMM *phmm, int T, int *O, double **delta, int **psi,
 
 #else 
 
-void Viterbi(HMM *phmm, int T, int *O, double **delta, int **psi, 
-	     int *q, double *pprob)
+//extern "C"
+void Viterbi(HMM *phmm, int T, int *O, real **delta, int **psi, 
+	     int *q, real *pprob)
 {
   int 	i, j;	/* state indices */
   int  	t;	/* time index */	
 
   int	maxvalidx;
-  double	maxval, val;
+  real	maxval, val;
 
   printf("\t\tRunning CPU accelerated version\n");
 
@@ -267,28 +270,28 @@ void Viterbi(HMM *phmm, int T, int *O, double **delta, int **psi,
 
 #endif
 
-
-void ViterbiLog(HMM *phmm, int T, int *O, double **delta, int **psi,
-		int *q, double *pprob)
+//extern "C"
+void ViterbiLog(HMM *phmm, int T, int *O, real **delta, int **psi,
+		int *q, real *pprob)
 {
   int     i, j;   /* state indices */
   int     t;      /* time index */
  
   int     maxvalind;
-  double  maxval, val;
-  double  **biot;
+  real  maxval, val;
+  real  **biot;
 
   /* 0. Preprocessing */
 
-  for (i = 1; i <= phmm->N; i++) 
+  for (i = 1; i <= phmm->N; i++)
     phmm->pi[i] = log(phmm->pi[i]);
-  for (i = 1; i <= phmm->N; i++) 
+  for (i = 1; i <= phmm->N; i++)
     for (j = 1; j <= phmm->N; j++) {
       phmm->A[i][j] = log(phmm->A[i][j]);
     }
 
   biot = dmatrix(1, phmm->N, 1, T);
-  for (i = 1; i <= phmm->N; i++) 
+  for (i = 1; i <= phmm->N; i++)
     for (t = 1; t <= T; t++) {
       biot[i][t] = log(phmm->B[i][O[t]]);
     }
@@ -307,14 +310,14 @@ void ViterbiLog(HMM *phmm, int T, int *O, double **delta, int **psi,
       maxval = -VITHUGE;
       maxvalind = 1;
       for (i = 1; i <= phmm->N; i++) {
-	val = delta[t-1][i] + (phmm->A[i][j]);
-	if (val > maxval) {
-	  maxval = val;
-	  maxvalind = i;
-	}
+  	val = delta[t-1][i] + (phmm->A[i][j]);
+  	if (val > maxval) {
+  	  maxval = val;
+  	  maxvalind = i;
+  	}
       }
  
-      delta[t][j] = maxval + biot[j][t]; 
+      delta[t][j] = maxval + biot[j][t];
       psi[t][j] = maxvalind;
  
     }

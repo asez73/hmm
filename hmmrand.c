@@ -16,7 +16,7 @@
 */
 int  hmmgetseed(void) 
 {
-	return ((int) getpid());
+  return ((int) getpid());
 }
 
 /* 
@@ -25,7 +25,7 @@ int  hmmgetseed(void)
 */
 void hmmsetseed(int seed) 
 {
-	srand(seed);
+  srand(seed);
 }
 
 /*
@@ -35,6 +35,6 @@ void hmmsetseed(int seed)
 
 double hmmgetrand(void)
 {
-	return (double) rand()/RAND_MAX;
+  return (double) rand()/RAND_MAX;
 }
 

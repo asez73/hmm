@@ -13,61 +13,114 @@
 #include "hmm.h"
 
 
+//#define real float
+
 /// this kernel deals with 
-void viterbi_kernel_small(HMM *phmm, int T, int *O, double **delta, int **psi, 
-		    int *q, double *pprob)
+/**
+ *\brief Viterbi O(N^2) inner loop
+ *
+ *\param Symbol the T-th observed symbol
+ *\param delta_prev previous delta vector
+ *\param delta_curr current delta vector to be updated
+ *\param A the state transition matrix, in column major order
+ *\param B the state emission matrix, in column major order
+ *\param N number of states
+ */
+__global__ void ViterbiKernel(int Symbol, real* delta_prev, real* delta_curr, int* psi_curr, real* A, real *B, size_t N)
 {
+  /// compute the distribution of threads
+  /// using 1D layout  
 
-  
+  int pb_stride = blockDim.x * gridDim.x;
+  int idx = threadIdx.x + blockIdx.x * blockDim.x;
+  //int stride = num_threads / size;
 
-  /* int 	i, j;	/\* state indices *\/ */
-  /* int  	t;	/\* time index *\/	 */
+  // each thread to be fixed at the tid-th column
+  for ( int j=idx; j<N; j += pb_stride )
+    { 
+      real maxval = 0.0;
+      real maxvalidx = 1;
+      for ( int i=0; i<N; ++i )
+	{
+	  real tmp = delta_prev[i] * A[j*N + i];
+	  if ( maxval < tmp )
+	    {
+	       maxval = tmp;
+	       /// Waring: the index must be incremented
+	       maxvalidx = i + 1;
+	    }
+	}
+      delta_curr[j] = maxval * B[ (Symbol-1)*N + j ];
+      psi_curr[j] = maxvalidx;      
+    }  
+}
 
-  /* int	maxvalind; */
-  /* double	maxval, val; */
 
-  /* /\* 1. Initialization  *\/ */
-	
-  /* for (i = 1; i <= phmm->N; i++) { */
-  /*   delta[1][i] = phmm->pi[i] * (phmm->B[i][O[1]]); */
-  /*   psi[1][i] = 0; */
-  /* }	 */
 
-  /* /\* 2. Recursion *\/ */
-	
-  /* for (t = 2; t <= T; t++) { */
-  /*   for (j = 1; j <= phmm->N; j++) { */
-  /*     maxval = 0.0; */
-  /*     maxvalind = 1;	 */
-  /*     for (i = 1; i <= phmm->N; i++) { */
-  /* 	val = delta[t-1][i]*(phmm->A[i][j]); */
-  /* 	if (val > maxval) { */
-  /* 	  maxval = val;	 */
-  /* 	  maxvalind = i;	 */
-  /* 	} */
-  /*     } */
-			
-  /*     delta[t][j] = maxval*(phmm->B[j][O[t]]); */
-  /*     psi[t][j] = maxvalind;  */
+/// this kernel deals with 
+/**
+ *\brief Viterbi O(N^2) inner loop
+ *
+ * Compared with the basic version, this new kernel
+ * makes each block compute one column
+ *
+ *\param Symbol the T-th observed symbol
+ *\param delta_prev previous delta vector
+ *\param delta_curr current delta vector to be updated
+ *\param A the state transition matrix, in column major order
+ *\param B the state emission matrix, in column major order
+ *\param N number of states
+ */
+__global__ void ViterbiKernelv1(int Symbol, real* delta_prev, real* delta_curr, int* psi_curr, real* A, real *B, size_t N)
+{
+  /// compute the distribution of threads
+  /// using 1D layout  
 
-  /*   } */
-  /* } */
+  int pb_stride = gridDim.x;
+  //int stride = num_threads / size;
 
-  /* /\* 3. Termination *\/ */
+  const int num_threads = 2;
+  __shared__ real maxvalist[num_threads];
+  __shared__ int maxvalidx_list[num_threads];
 
-  /* *pprob = 0.0; */
-  /* q[T] = 1; */
-  /* for (i = 1; i <= phmm->N; i++) { */
-  /*   if (delta[T][i] > *pprob) { */
-  /*     *pprob = delta[T][i];	 */
-  /*     q[T] = i; */
-  /*   } */
-  /* } */
+  // each thread to be fixed at the tid-th column
+  register real maxval = 0.0;
+  register real maxvalidx = 1;
+    
+  for ( int j=blockIdx.x; j<N; j += pb_stride )
+    { 
+      for ( int i=threadIdx.x; i<N; i += blockDim.x )
+	{
+	  real tmp = delta_prev[i] * A[j*N + i];
+	  if ( maxval < tmp )
+	    {
+	       maxval = tmp;
+	       /// Waring: the index must be incremented
+	       maxvalidx = i + 1;
+	    }
+	}
+      maxvalist[threadIdx.x] = maxval;
+      maxvalidx_list[threadIdx.x] = maxvalidx;
 
-  /* /\* 4. Path (state sequence) backtracking *\/ */
-
-  /* for (t = T - 1; t >= 1; t--) */
-  /*   q[t] = psi[t+1][q[t+1]]; */
-
+      /// block level barrier
+      __syncthreads();
+      
+      if ( threadIdx.x == 0 )
+	{
+	  maxval = maxvalist[0];
+	  maxvalidx = maxvalidx_list[0];
+	  for ( int t=1; t<num_threads; ++t )
+	    {
+	      if ( maxval < maxvalist[t] )
+		{
+		  maxval = maxvalist[t];
+		  maxvalidx = maxvalidx_list[t];
+		}
+	    }
+	  
+	  delta_curr[j] = maxval * B[ (Symbol-1)*N + j ];
+	  psi_curr[j] = maxvalidx;      
+	}
+    }  
 }
 

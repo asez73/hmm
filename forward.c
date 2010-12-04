@@ -12,12 +12,12 @@
 #include "hmm.h"
 static char rcsid[] = "$Id: forward.c,v 1.2 1998/02/19 12:42:31 kanungo Exp kanungo $";
 
-void Forward(HMM *phmm, int T, int *O, double **alpha, double *pprob)
+void Forward(HMM *phmm, int T, int *O, real **alpha, real *pprob)
 {
   int     i, j;   /* state indices */
   int     t;      /* time index */
  
-  double sum;     /* partial sum */
+  real sum;     /* partial sum */
  
   /* 1. Initialization */
  
@@ -46,14 +46,14 @@ void Forward(HMM *phmm, int T, int *O, double **alpha, double *pprob)
  
 }
 
-void ForwardWithScale(HMM *phmm, int T, int *O, double **alpha, 
-		      double *scale, double *pprob)
+void ForwardWithScale(HMM *phmm, int T, int *O, real **alpha, 
+		      real *scale, real *pprob)
 /*  pprob is the LOG probability */
 {
   int	i, j; 	/* state indices */
   int	t;	/* time index */
 
-  double sum;	/* partial sum */
+  real sum;	/* partial sum */
 
   /* 1. Initialization */
 

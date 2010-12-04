@@ -21,37 +21,39 @@ int main (int argc, char **argv)
 	int 	t, T; 
 	HMM  	hmm;
 	int	*O;	/* observation sequence O[1..T] */
-	double **alpha;
-	double *scale;
-	double 	proba, logproba; 
+	real **alpha;
+	real *scale;
+	real 	proba, logproba; 
 	FILE	*fp;
 
 	if (argc != 3) {
-		printf("Usage error \n");
-		printf("Usage: testfor <model.hmm> <obs.seq> \n");
-		exit (1);
+	  printf("Usage error \n");
+	  printf("Usage: testfor <model.hmm> <obs.seq> \n");
+	  exit (1);
 	}
 	
 	fp = fopen(argv[1], "r");
 	if (fp == NULL) {
-		fprintf(stderr, "Error: File %s not found\n", argv[1]);
-		exit (1);
+	  fprintf(stderr, "Error: File %s not found\n", argv[1]);
+	  exit (1);
 	}
 	ReadHMM(fp, &hmm);
 	fclose(fp);
-
+	
 	fp = fopen(argv[2], "r");
 	if (fp == NULL) {
-		fprintf(stderr, "Error: File %s not found\n", argv[2]);
-		exit (1);
+	  fprintf(stderr, "Error: File %s not found\n", argv[2]);
+	  exit (1);
 	}
 	ReadSequence(fp, &T, &O);
 	fclose(fp);
-
-
-	alpha = dmatrix(1, T, 1, hmm.N);
-	scale = dvector(1, T);
-
+	
+	
+	//alpha = dmatrix(1, T, 1, hmm.N);
+	//scale = dvector(1, T);
+	alpha = matrix(1, T, 1, hmm.N);
+	scale = vector(1, T);
+	
 	printf("------------------------------------\n");
 	printf("Forward without scaling \n");
 	Forward(&hmm, T, O, alpha, &proba); 

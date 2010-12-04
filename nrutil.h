@@ -10,17 +10,18 @@
 **      $Id: nrutil.h,v 1.2 1998/02/19 16:32:42 kanungo Exp kanungo $
 */
 
+#include "hmm.h"
 
-float *vector();
-float *matrix();
-float *convert_matrix();
+real *vector();
+real **matrix();
+real **convert_matrix();
 
-double *dvector();
-double *dmatrix();
+real *dvector();
+real **dmatrix();
 
 int *ivector();
-int *imatrix();
-float *submatrix();
+int **imatrix();
+real **submatrix();
 
 void free_vector();
 void free_dvector();

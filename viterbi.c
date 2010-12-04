@@ -17,14 +17,14 @@ static char rcsid[] = "$Id: viterbi.c,v 1.1 1999/05/06 05:25:37 kanungo Exp kanu
 
 #define VITHUGE  100000000000.0
 
-void Viterbi(HMM *phmm, int T, int *O, double **delta, int **psi, 
-	     int *q, double *pprob)
+void Viterbi(HMM *phmm, int T, int *O, real **delta, int **psi, 
+	     int *q, real *pprob)
 {
   int 	i, j;	/* state indices */
   int  	t;	/* time index */	
 
   int	maxvalind;
-  double	maxval, val;
+  real	maxval, val;
 
   /* 1. Initialization  */
 	
@@ -75,15 +75,15 @@ void Viterbi(HMM *phmm, int T, int *O, double **delta, int **psi,
 }
 
 
-void ViterbiLog(HMM *phmm, int T, int *O, double **delta, int **psi,
-		int *q, double *pprob)
+void ViterbiLog(HMM *phmm, int T, int *O, real **delta, int **psi,
+		int *q, real *pprob)
 {
   int     i, j;   /* state indices */
   int     t;      /* time index */
  
   int     maxvalind;
-  double  maxval, val;
-  double  **biot;
+  real  maxval, val;
+  real  **biot;
 
   /* 0. Preprocessing */
 

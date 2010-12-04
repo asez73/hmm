@@ -12,12 +12,12 @@
 #include "hmm.h"
 static char rcsid[] = "$Id: forward.c,v 1.2 1998/02/19 12:42:31 kanungo Exp kanungo $";
 
-void Forward(HMM *phmm, int T, int *O, double **alpha, double *pprob)
+void Forward(HMM *phmm, int T, int *O, real **alpha, real *pprob)
 {
   int     i, j;   /* state indices */
   int     t;      /* time index */
  
-  double sum;     /* partial sum */
+  real sum;     /* partial sum */
  
   /* 1. Initialization */
  
@@ -27,10 +27,10 @@ void Forward(HMM *phmm, int T, int *O, double **alpha, double *pprob)
   /* 2. Induction */
   int N = phmm->N;
   int M = phmm->M;
-  double* A = (double*)malloc(N*N*sizeof(double));
-  double* B = (double*)malloc(N*M*sizeof(double));
-  double* buff = (double*)malloc(N*sizeof(double));
-  double* buff_tmp = (double*)malloc(N*sizeof(double));
+  real* A = (real*)malloc(N*N*sizeof(real));
+  real* B = (real*)malloc(N*M*sizeof(real));
+  real* buff = (real*)malloc(N*sizeof(real));
+  real* buff_tmp = (real*)malloc(N*sizeof(real));
 
   for ( i=0; i<N; ++i )
     buff[i] = alpha[1][i+1];
@@ -49,14 +49,23 @@ void Forward(HMM *phmm, int T, int *O, double **alpha, double *pprob)
     }
 
   char trans = 'n';
-  double alp = 1, beta = 0;
+  real alp = 1, beta = 0;
   int incx = 1, incy = 1;
   for (t = 1; t < T; t++) 
     {     
-      dgemv(&trans, &N, &N, &alp, A, &N, buff, &incx, &beta, buff_tmp, &incy);
+
+      /* /// dgemv does not support in-place operation thus we need one more buffer */
+      /* sgemv(&trans, &N, &N, &alp, A, &N, buff, &incx, &beta, buff_tmp, &incy); */
+      
+      /* /// Warning: be careful of the B */
+      /* vsMul(N, buff_tmp, &(B[(O[t+1]-1)*N]), buff); */
+
+      /// dgemv does not support in-place operation thus we need one more buffer
+      gemv(&trans, &N, &N, &alp, A, &N, buff, &incx, &beta, buff_tmp, &incy);
       
       /// Warning: be careful of the B
-      vdMul(N, buff_tmp, &(B[(O[t+1]-1)*N]), buff);              
+      vMul(N, buff_tmp, &(B[(O[t+1]-1)*N]), buff);
+
       
       /* for (j = 1; j <= phmm->N; j++)  */
       /* 	{ */
@@ -103,14 +112,14 @@ void Forward(HMM *phmm, int T, int *O, double **alpha, double *pprob)
   free(buff_tmp);
 }
 
-void ForwardWithScale(HMM *phmm, int T, int *O, double **alpha, 
-		      double *scale, double *pprob)
+void ForwardWithScale(HMM *phmm, int T, int *O, real **alpha, 
+		      real *scale, real *pprob)
 /*  pprob is the LOG probability */
 {
   int	i, j; 	/* state indices */
   int	t;	/* time index */
 
-  double sum;	/* partial sum */
+  real sum;	/* partial sum */
 
   /* 1. Initialization */
 

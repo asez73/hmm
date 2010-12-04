@@ -6,7 +6,9 @@
 # $Id: Makefile,v 1.3 1998/02/23 08:12:35 kanungo Exp kanungo $
 # 
 #
-CFLAGS= -g -D__GPU
+
+# single precision just doesn't work here...
+CFLAGS= -g -D__GPU -D__DOUBLE 
 INCS=
 # use the following line to "Purify" the code
 #CC=purify gcc
@@ -16,17 +18,20 @@ LN_FLAGS = -L/opt/intel/composerxe-2011.0.084/mkl/lib/intel64
 CC=gcc
 SRCS=baum.c viterbi.c forward.c backward.c hmmutils.c sequence.c \
 	genseq.c nrutil.c testvit.c esthmm.c hmmrand.c testfor.c \
-	viterbi_gpu.c forward_mkl.c
+	viterbi_gpu.cu viterbi_kernel.cu forward_mkl.c
 
 EXE = genseq testvit testfor esthmm testvit_gpu testfor_mkl
 
 all : $(EXE)
 
-viterbi_gpu.o: viterbi_gpu.c
-	$(CC) -c $^ $(CUDA_MAKEFILE_I) -D__GPU 
+# viterbi_kernel.o: viterbi_kernel.cu 
+# 	nvcc -c $^ $(CUDA_MAKEFILE_I) -arch=sm_13 -Xcompiler $(CFLAGS)
 
-forward_mkl.o: forward_mkl.c
-	$(CC) -c $^ 
+viterbi_gpu.o: viterbi_gpu.cu viterbi_kernel.cu
+	nvcc -c $^ $(CUDA_MAKEFILE_I) -arch=sm_13 -Xcompiler $(CFLAGS)
+
+# forward_mkl.o: forward_mkl.c
+# 	$(CC) -c $^ 
 
 genseq: genseq.o sequence.o nrutil.o hmmutils.o  hmmrand.o
 	 $(CC) -o $@ $^ -lm

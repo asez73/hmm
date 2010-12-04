@@ -13,11 +13,11 @@
 #include "hmm.h"
 static char rcsid[] = "$Id: backward.c,v 1.3 1998/02/23 07:56:05 kanungo Exp kanungo $";
 
-void Backward(HMM *phmm, int T, int *O, double **beta, double *pprob)
+void Backward(HMM *phmm, int T, int *O, real **beta, real *pprob)
 {
         int     i, j;   /* state indices */
         int     t;      /* time index */
-        double sum;
+        real sum;
  
  
         /* 1. Initialization */
@@ -45,30 +45,29 @@ void Backward(HMM *phmm, int T, int *O, double **beta, double *pprob)
  
 }
 
-void BackwardWithScale(HMM *phmm, int T, int *O, double **beta, 
-	double *scale, double *pprob)
+void BackwardWithScale(HMM *phmm, int T, int *O, real **beta, 
+	real *scale, real *pprob)
 {
         int     i, j;   /* state indices */
         int     t;      /* time index */
-	double sum;
- 
- 
+	real sum;
+	
+	
         /* 1. Initialization */
  
         for (i = 1; i <= phmm->N; i++)
-                beta[T][i] = 1.0/scale[T]; 
- 
+	  beta[T][i] = 1.0/scale[T]; 
+	
         /* 2. Induction */
  
         for (t = T - 1; t >= 1; t--) {
-                for (i = 1; i <= phmm->N; i++) {
-			sum = 0.0;
-                        for (j = 1; j <= phmm->N; j++)
-                        	sum += phmm->A[i][j] * 
-					(phmm->B[j][O[t+1]])*beta[t+1][j];
-                        beta[t][i] = sum/scale[t];
- 
-                }
+	  for (i = 1; i <= phmm->N; i++) {
+	    sum = 0.0;
+	    for (j = 1; j <= phmm->N; j++)
+	      sum += phmm->A[i][j] * 
+		(phmm->B[j][O[t+1]])*beta[t+1][j];
+	    beta[t][i] = sum/scale[t];	    
+	  }
         }
- 
+	
 }

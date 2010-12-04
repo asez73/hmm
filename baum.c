@@ -23,19 +23,19 @@
 static char rcsid[] = "$Id: baumwelch.c,v 1.6 1999/04/24 15:58:43 kanungo Exp kanungo $";
 
 #define DELTA 0.001 
-void BaumWelch(HMM *phmm, int T, int *O, double **alpha, double **beta,
-	double **gamma, int *pniter, 
-	double *plogprobinit, double *plogprobfinal)
+void BaumWelch(HMM *phmm, int T, int *O, real **alpha, real **beta,
+	real **gamma, int *pniter, 
+	real *plogprobinit, real *plogprobfinal)
 {
 	int	i, j, k;
 	int	t, l = 0;
 
-	double	logprobf, logprobb,  threshold;
-	double	numeratorA, denominatorA;
-	double	numeratorB, denominatorB;
+	real	logprobf, logprobb,  threshold;
+	real	numeratorA, denominatorA;
+	real	numeratorB, denominatorB;
 
-	double ***xi, *scale;
-	double delta, deltaprev, logprobprev;
+	real ***xi, *scale;
+	real delta, deltaprev, logprobprev;
 
 	deltaprev = 10e-70;
 
@@ -104,13 +104,13 @@ void BaumWelch(HMM *phmm, int T, int *O, double **alpha, double **beta,
 	free_dvector(scale, 1, T);
 }
 
-void ComputeGamma(HMM *phmm, int T, double **alpha, double **beta, 
-	double **gamma)
+void ComputeGamma(HMM *phmm, int T, real **alpha, real **beta, 
+	real **gamma)
 {
 
 	int 	i, j;
 	int	t;
-	double	denominator;
+	real	denominator;
 
 	for (t = 1; t <= T; t++) {
 		denominator = 0.0;
@@ -124,12 +124,12 @@ void ComputeGamma(HMM *phmm, int T, double **alpha, double **beta,
 	}
 }
 
-void ComputeXi(HMM* phmm, int T, int *O, double **alpha, double **beta, 
-	double ***xi)
+void ComputeXi(HMM* phmm, int T, int *O, real **alpha, real **beta, 
+	real ***xi)
 {
 	int i, j;
 	int t;
-	double sum;
+	real sum;
 
 	for (t = 1; t <= T - 1; t++) {
 		sum = 0.0;	
@@ -147,12 +147,12 @@ void ComputeXi(HMM* phmm, int T, int *O, double **alpha, double **beta,
 	}
 }
 
-double *** AllocXi(int T, int N)
+real *** AllocXi(int T, int N)
 {
 	int t;
-	double ***xi;
+	real ***xi;
 
-	xi = (double ***) malloc(T*sizeof(double **));
+	xi = (real ***) malloc(T*sizeof(real **));
 
 	xi --;
 
@@ -161,7 +161,7 @@ double *** AllocXi(int T, int N)
 	return xi;
 }
 
-void FreeXi(double *** xi, int T, int N)
+void FreeXi(real *** xi, int T, int N)
 {
 	int t;
 

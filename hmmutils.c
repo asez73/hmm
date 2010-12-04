@@ -24,7 +24,7 @@ void ReadHMM(FILE *fp, HMM *phmm)
 	fscanf(fp, "N= %d\n", &(phmm->N)); 
 
 	fscanf(fp, "A:\n");
-	phmm->A = (double **) dmatrix(1, phmm->N, 1, phmm->N);
+	phmm->A = (real **) dmatrix(1, phmm->N, 1, phmm->N);
 	for (i = 1; i <= phmm->N; i++) { 
 		for (j = 1; j <= phmm->N; j++) {
 			fscanf(fp, "%lf", &(phmm->A[i][j])); 
@@ -33,7 +33,7 @@ void ReadHMM(FILE *fp, HMM *phmm)
 	}
 
 	fscanf(fp, "B:\n");
-	phmm->B = (double **) dmatrix(1, phmm->N, 1, phmm->M);
+	phmm->B = (real **) dmatrix(1, phmm->N, 1, phmm->M);
 	for (j = 1; j <= phmm->N; j++) { 
 		for (k = 1; k <= phmm->M; k++) {
 			fscanf(fp, "%lf", &(phmm->B[j][k])); 
@@ -42,7 +42,7 @@ void ReadHMM(FILE *fp, HMM *phmm)
 	}
 
 	fscanf(fp, "pi:\n");
-	phmm->pi = (double *) dvector(1, phmm->N);
+	phmm->pi = (real *) dvector(1, phmm->N);
 	for (i = 1; i <= phmm->N; i++) 
 		fscanf(fp, "%lf", &(phmm->pi[i])); 
 
@@ -64,7 +64,7 @@ void FreeHMM(HMM *phmm)
 void InitHMM(HMM *phmm, int N, int M, int seed)
 {
 	int i, j, k;
-	double sum;
+	real sum;
 
 
 	/* initialize random number generator */
@@ -76,7 +76,7 @@ void InitHMM(HMM *phmm, int N, int M, int seed)
  
         phmm->N = N;
  
-        phmm->A = (double **) dmatrix(1, phmm->N, 1, phmm->N);
+        phmm->A = (real **) dmatrix(1, phmm->N, 1, phmm->N);
 
         for (i = 1; i <= phmm->N; i++) {
 		sum = 0.0;
@@ -88,7 +88,7 @@ void InitHMM(HMM *phmm, int N, int M, int seed)
 			 phmm->A[i][j] /= sum;
 	}
  
-        phmm->B = (double **) dmatrix(1, phmm->N, 1, phmm->M);
+        phmm->B = (real **) dmatrix(1, phmm->N, 1, phmm->M);
 
         for (j = 1; j <= phmm->N; j++) {
 		sum = 0.0;	
@@ -100,7 +100,7 @@ void InitHMM(HMM *phmm, int N, int M, int seed)
 			phmm->B[j][k] /= sum;
 	}
  
-        phmm->pi = (double *) dvector(1, phmm->N);
+        phmm->pi = (real *) dvector(1, phmm->N);
 	sum = 0.0;
         for (i = 1; i <= phmm->N; i++) {
                 phmm->pi[i] = hmmgetrand(); 
@@ -119,18 +119,18 @@ void CopyHMM(HMM *phmm1, HMM *phmm2)
  
         phmm2->N = phmm1->N;
  
-        phmm2->A = (double **) dmatrix(1, phmm2->N, 1, phmm2->N);
+        phmm2->A = (real **) dmatrix(1, phmm2->N, 1, phmm2->N);
  
         for (i = 1; i <= phmm2->N; i++)
                 for (j = 1; j <= phmm2->N; j++)
                         phmm2->A[i][j] = phmm1->A[i][j];
  
-        phmm2->B = (double **) dmatrix(1, phmm2->N, 1, phmm2->M);
+        phmm2->B = (real **) dmatrix(1, phmm2->N, 1, phmm2->M);
         for (j = 1; j <= phmm2->N; j++)
                 for (k = 1; k <= phmm2->M; k++)
                         phmm2->B[j][k] = phmm1->B[j][k];
  
-        phmm2->pi = (double *) dvector(1, phmm2->N);
+        phmm2->pi = (real *) dvector(1, phmm2->N);
         for (i = 1; i <= phmm2->N; i++)
                 phmm2->pi[i] = phmm1->pi[i]; 
  
