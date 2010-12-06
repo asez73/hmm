@@ -16,10 +16,14 @@
 #define real double
 #define vMul vdMul
 #define gemv dgemv
+#define asum dasum
+#define axpy daxpy
 #elif defined(__SINGLE)
 #define real float
 #define vMul vsMul
 #define gemv sgemv
+#define asum sasum
+#define axpy saxpy
 #else
 #error "please specify the precision"
 #endif

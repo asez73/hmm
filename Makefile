@@ -19,11 +19,15 @@ CC=gcc
 SRCS=baum.c viterbi.c forward.c backward.c hmmutils.c sequence.c \
 	genseq.c nrutil.c testvit.c esthmm.c hmmrand.c testfor.c \
 	viterbi_gpu.cu viterbi_kernel.cu forward_mkl.c \
-	genrandhmm.c forward_gpu.cu forward_kernel.cu viterbi_mkl.c
+	genrandhmm.c forward_gpu.cu forward_kernel.cu viterbi_mkl.c \
+	perftest_vit.c perftest_for.c
 
-EXE = genseq testvit testfor esthmm
+EXE = genseq testvit testfor esthmm perftest_vit perftest_for
 
 all : $(EXE)
+
+# libhmm.so: baum.o viterbi.o forward.o backward.o nrutil.o hmmutils.o 
+# 	$(CC) 
 
 # viterbi_kernel.o: viterbi_kernel.cu 
 # 	nvcc -c $^ $(CUDA_MAKEFILE_I) -arch=sm_13 -Xcompiler $(CFLAGS)
@@ -45,6 +49,15 @@ testvit: testvit.o viterbi_mkl.o viterbi_gpu.o nrutil.o hmmutils.o sequence.o hm
 
 testfor: testfor.o forward_gpu.o forward_mkl.o nrutil.o hmmutils.o sequence.o hmmrand.o genrandhmm.o
 	 $(CC) -o $@ $^ $(LN_FLAGS) -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm $(CUDA_MAKEFILE_L) -lcuda -lcudart -fopenmp
+
+
+perftest_vit: perftest_vit.o viterbi_mkl.o viterbi_gpu.o nrutil.o hmmutils.o sequence.o hmmrand.o genrandhmm.o
+	 $(CC) -o $@ $^ $(LN_FLAGS) -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm $(CUDA_MAKEFILE_L) -lcuda -lcudart -fopenmp
+
+
+perftest_for: perftest_for.o forward_gpu.o forward_mkl.o nrutil.o hmmutils.o sequence.o hmmrand.o genrandhmm.o
+	 $(CC) -o $@ $^ $(LN_FLAGS) -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm $(CUDA_MAKEFILE_L) -lcuda -lcudart -fopenmp
+
 
 # testfor: testfor.o forward.o nrutil.o hmmutils.o sequence.o hmmrand.o
 # 	 $(CC) -o $@ $^ -lm 

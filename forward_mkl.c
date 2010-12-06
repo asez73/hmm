@@ -9,7 +9,11 @@
 **      $Id: forward.c,v 1.2 1998/02/19 12:42:31 kanungo Exp kanungo $
 */
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <mkl.h>
 #include "hmm.h"
+
 static char rcsid[] = "$Id: forward.c,v 1.2 1998/02/19 12:42:31 kanungo Exp kanungo $";
 
 void Forward(HMM *phmm, int T, int *O, real **alpha, real *pprob)
@@ -112,45 +116,136 @@ void Forward(HMM *phmm, int T, int *O, real **alpha, real *pprob)
   free(buff_tmp);
 }
 
-void ForwardWithScale(HMM *phmm, int T, int *O, real **alpha, 
-		      real *scale, real *pprob)
-/*  pprob is the LOG probability */
+
+
+void ForwardWithScale(HMM *phmm, int T, int *O, real **alpha, real* scale, real *pprob)
 {
-  int	i, j; 	/* state indices */
-  int	t;	/* time index */
-
-  real sum;	/* partial sum */
-
+  int     i, j;   /* state indices */
+  int     t;      /* time index */
+ 
+  real sum;     /* partial sum */
+ 
   /* 1. Initialization */
-
-  scale[1] = 0.0;	
-  for (i = 1; i <= phmm->N; i++) {
-    alpha[1][i] = phmm->pi[i]* (phmm->B[i][O[1]]);
-    scale[1] += alpha[1][i];
-  }
-  for (i = 1; i <= phmm->N; i++) 
-    alpha[1][i] /= scale[1]; 
-	
+   for (i = 1; i <= phmm->N; i++)
+    alpha[1][i] = phmm->pi[i]* phmm->B[i][O[1]];
+ 
   /* 2. Induction */
+  int N = phmm->N;
+  int M = phmm->M;
+  real* A = (real*)malloc(N*N*sizeof(real));
+  real* B = (real*)malloc(N*M*sizeof(real));
+  real* buff = (real*)malloc(N*sizeof(real));
+  real* buff_tmp = (real*)malloc(N*sizeof(real));
+  real* scale_buff = (real*)malloc(N*sizeof(real));
 
-  for (t = 1; t <= T - 1; t++) {
-    scale[t+1] = 0.0;
-    for (j = 1; j <= phmm->N; j++) {
-      sum = 0.0;
-      for (i = 1; i <= phmm->N; i++) 
-	sum += alpha[t][i]* (phmm->A[i][j]); 
+  memset((void*)scale_buff, 0, sizeof(real)*N);
+  for ( i=0; i<N; ++i )
+    scale_buff[0] += (buff[i] = alpha[1][i+1]);
+  for ( i=0; i<N; ++i )
+    buff[i] /= scale_buff[0]; 
 
-      alpha[t+1][j] = sum*(phmm->B[j][O[t+1]]);
-      scale[t+1] += alpha[t+1][j];
+  /// marshal the data
+  /// the time taken is marginal 
+  /// compared with the time consumed in computation
+  for (i=0; i<N; ++i)
+    {
+      for (j=0; j<N; ++j)
+	{
+	  A[i*N+j] = phmm->A[i+1][j+1];
+	}
+      for (j=0; j<M; ++j)
+	{
+	  B[j*N+i] = phmm->B[i+1][j+1];
+	}
     }
-    for (j = 1; j <= phmm->N; j++) 
-      alpha[t+1][j] /= scale[t+1]; 
-  }
+
+  char trans = 'n';
+  real alp = 1, beta = 0;
+  int incx = 1, incy = 1;
+  for (t = 1; t < T; t++) 
+    {     
+
+      /* /// dgemv does not support in-place operation thus we need one more buffer */
+      /* sgemv(&trans, &N, &N, &alp, A, &N, buff, &incx, &beta, buff_tmp, &incy); */
+      
+      /* /// Warning: be careful of the B */
+      /* vsMul(N, buff_tmp, &(B[(O[t+1]-1)*N]), buff); */
+
+      /// dgemv does not support in-place operation thus we need one more buffer
+      gemv(&trans, &N, &N, &alp, A, &N, buff, &incx, &beta, buff_tmp, &incy);
+      
+      /// Warning: be careful of the B
+      vMul(N, buff_tmp, &(B[(O[t+1]-1)*N]), buff);
+
+      /// cumulate the scaling factor
+      /// Warning: remember to include mkl.h so that the right C functions are called 
+      int one = 1;
+      scale_buff[t] = asum(&N, buff, &one);
+      real factor = 1.0 / scale_buff[t] - 1;
+      
+      /// scale the alpha vector
+      axpy(&N, &factor, buff, &one, buff, &one);
+    }
+  
 
   /* 3. Termination */
   *pprob = 0.0;
 
-  for (t = 1; t <= T; t++)
-    *pprob += log(scale[t]);
-	
+  for (t = 0; t < T; t++)
+    *pprob += log(scale_buff[t]);
+
+  free(A);
+  free(B);  
+  free(buff);
+  free(buff_tmp);
 }
+
+
+
+/* void ForwardWithScale(HMM *phmm, int T, int *O, real **alpha,  */
+/* 		      real *scale, real *pprob) */
+/* /\*  pprob is the LOG probability *\/ */
+/* { */
+/*   int	i, j; 	/\* state indices *\/ */
+/*   int	t;	/\* time index *\/ */
+
+/*   real sum;	/\* partial sum *\/ */
+
+/*   /\* 1. Initialization *\/ */
+
+/*   scale[1] = 0.0;	 */
+/*   for (i = 1; i <= phmm->N; i++)  */
+/*     { */
+/*       alpha[1][i] = phmm->pi[i]* (phmm->B[i][O[1]]); */
+/*       scale[1] += alpha[1][i]; */
+/*     } */
+/*   for (i = 1; i <= phmm->N; i++)  */
+/*     alpha[1][i] /= scale[1];  */
+	
+/*   /\* 2. Induction *\/ */
+
+/*   for (t = 1; t <= T - 1; t++)  */
+/*     { */
+/*       scale[t+1] = 0.0; */
+
+/*       for (j = 1; j <= phmm->N; j++)  */
+/* 	{ */
+/* 	  sum = 0.0; */
+/* 	  for (i = 1; i <= phmm->N; i++)  */
+/* 	    sum += alpha[t][i]* (phmm->A[i][j]);  */
+	  
+/* 	  alpha[t+1][j] = sum*(phmm->B[j][O[t+1]]); */
+/* 	  scale[t+1] += alpha[t+1][j]; */
+/* 	} */
+
+/*       for (j = 1; j <= phmm->N; j++)  */
+/* 	alpha[t+1][j] /= scale[t+1];  */
+/*     } */
+  
+/*   /\* 3. Termination *\/ */
+/*   *pprob = 0.0; */
+
+/*   for (t = 1; t <= T; t++) */
+/*     *pprob += log(scale[t]); */
+	
+/* } */
