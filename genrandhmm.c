@@ -13,8 +13,8 @@ void GenRandHMM(HMM *phmm)
   
   srand(time(NULL));
   
-  printf("Generating Random HMM\n");
-  printf("N: %d\nM: %d\n", N, M);
+  /* printf("Generating Random HMM\n"); */
+  /* printf("N: %d\nM: %d\n", N, M); */
 
   //printf("A:\n");
   for (i=1; i<=N; ++i)
@@ -40,7 +40,7 @@ void GenRandHMM(HMM *phmm)
 
     }
 
-  printf("Pi:\n");
+  //printf("Pi:\n");
   real norm = 0.0;
   for (i=1; i<=N; ++i)
     norm += (phmm->pi[i] = (1 + (real)rand()/RAND_MAX));

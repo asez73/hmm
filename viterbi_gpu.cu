@@ -99,7 +99,7 @@ void ViterbiGPU(HMM *phmm, int T, int *O, real **delta, int **psi,
 
   /// timing starts from here, or later if you wish...
   /// initialize the data on GPU
-  printf("\tRunning GPU accelerated version\n");
+  //printf("\tRunning GPU accelerated version\n");
   real *g_A, *g_B, *g_delta;
   int *g_psi;
 

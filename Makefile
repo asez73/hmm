@@ -8,14 +8,23 @@
 #
 
 # single precision just doesn't work here...
-CFLAGS= -g -D__GPU -D__DOUBLE 
+CC=icc
+CFLAGS= -O3 -D__GPU -D__DOUBLE 
 INCS=
 # use the following line to "Purify" the code
 #CC=purify gcc
 
-LN_FLAGS = -L/opt/intel/composerxe-2011.0.084/mkl/lib/intel64
+CUDA_MAKEFILE_L = -L/user/local/cuda/lib
+CUDA_MAKEFILE_I = -I/user/local/cuda/include
+LN_FLAGS = -L/opt/intel/composerxe-2011.0.084/mkl/lib/intel64 
 
-CC=gcc
+#MKL_FLAGS = -Wl,--start-group libmkl_intel_lp64.a libmkl_intel_thread.a libmkl_core.a libiomp5.a -Wl,--end-group -lpthread -lm
+MKL_FLAGS = lmkl_intel_lp64 lmkl_intel_thread lmkl_core liomp5 -lpthread -lm
+#-fopenmp
+
+CUDA_FLAGS = -O3 -lcuda -lcudart 
+
+
 SRCS=baum.c viterbi.c forward.c backward.c hmmutils.c sequence.c \
 	genseq.c nrutil.c testvit.c esthmm.c hmmrand.c testfor.c \
 	viterbi_gpu.cu viterbi_kernel.cu forward_mkl.c \
@@ -45,18 +54,18 @@ genseq: genseq.o sequence.o nrutil.o hmmutils.o  hmmrand.o
 # 	 $(CC) -o $@ $^ -lm
 
 testvit: testvit.o viterbi_mkl.o viterbi_gpu.o nrutil.o hmmutils.o sequence.o hmmrand.o genrandhmm.o
-	 $(CC) -o $@ $^ $(LN_FLAGS) -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm $(CUDA_MAKEFILE_L) -lcuda -lcudart -fopenmp
+	 $(CC) -o $@ $^ $(LN_FLAGS)  $(CUDA_MAKEFILE_L) $(MKL_FLAGS) $(CUDA_FLAGS)
 
 testfor: testfor.o forward_gpu.o forward_mkl.o nrutil.o hmmutils.o sequence.o hmmrand.o genrandhmm.o
-	 $(CC) -o $@ $^ $(LN_FLAGS) -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm $(CUDA_MAKEFILE_L) -lcuda -lcudart -fopenmp
+	 $(CC) -o $@ $^ $(LN_FLAGS) $(MKL_FLAGS) $(CUDA_MAKEFILE_L) $(CUDA_FLAGS)
 
 
 perftest_vit: perftest_vit.o viterbi_mkl.o viterbi_gpu.o nrutil.o hmmutils.o sequence.o hmmrand.o genrandhmm.o
-	 $(CC) -o $@ $^ $(LN_FLAGS) -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm $(CUDA_MAKEFILE_L) -lcuda -lcudart -fopenmp
+	 $(CC) -o $@ $^ $(LN_FLAGS) $(MKL_FLAGS) $(CUDA_MAKEFILE_L) $(CUDA_FLAGS)
 
 
 perftest_for: perftest_for.o forward_gpu.o forward_mkl.o nrutil.o hmmutils.o sequence.o hmmrand.o genrandhmm.o
-	 $(CC) -o $@ $^ $(LN_FLAGS) -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm $(CUDA_MAKEFILE_L) -lcuda -lcudart -fopenmp
+	 $(CC) -o $@ $^ $(LN_FLAGS) $(MKL_FLAGS) $(CUDA_MAKEFILE_L) $(CUDA_FLAGS)
 
 
 # testfor: testfor.o forward.o nrutil.o hmmutils.o sequence.o hmmrand.o
