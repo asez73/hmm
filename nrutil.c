@@ -14,7 +14,77 @@
 #include "hmm.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/time.h>
 static char rcsid[] = "$Id: nrutil.c,v 1.2 1998/02/19 16:31:35 kanungo Exp kanungo $";
+
+
+
+void data_format(HMM *phmm, real** A, real** B, real** pi)
+{
+  int N = phmm->N;
+  int M = phmm->M;  
+  *A = (real*)malloc(N*N*sizeof(real));
+  *B = (real*)malloc(N*M*sizeof(real));  
+  *pi = (real*)malloc(N*sizeof(real));
+
+  int i,j;
+  for ( i=0; i<N; ++i )
+    {
+      (*pi)[i] = phmm->pi[i+1];
+      for ( j=0; j<N; ++j)
+  	(*A)[j*N + i] = phmm->A[i+1][j+1];
+      for ( j=0; j<M; ++j )
+  	(*B)[j*N + i] = phmm->B[i+1][j+1];
+    }
+  
+
+  /* phmm->A = *A; */
+  /* phmm->B = *B; */
+  /* phmm->pi = *pi; */
+}
+
+
+void data_format_log(HMM *phmm, real** A, real** B, real** pi)
+{
+  int N = phmm->N;
+  int M = phmm->M;  
+  *A = (real*)malloc(N*N*sizeof(real));
+  *B = (real*)malloc(N*M*sizeof(real));  
+  *pi = (real*)malloc(N*sizeof(real));
+
+  int i,j;
+  for ( i=0; i<N; ++i )
+    {
+      (*pi)[i] = log(phmm->pi[i+1]);
+      for ( j=0; j<N; ++j)
+  	(*A)[j*N + i] = log(phmm->A[i+1][j+1]);
+      for ( j=0; j<M; ++j )
+  	(*B)[j*N + i] = log(phmm->B[i+1][j+1]);
+    }
+  
+
+  /* phmm->A = *A; */
+  /* phmm->B = *B; */
+  /* phmm->pi = *pi; */
+}
+
+
+
+
+double wallclock(void)
+{
+  struct timeval tv;                                                                                                
+  struct timezone tz;                                                                                               
+  double t;                                                                                                         
+
+  gettimeofday(&tv, &tz);
+
+  t = (double)tv.tv_sec * 1000;                                                                                     
+  t += ((double)tv.tv_usec) * 0.001;   
+
+  return t;
+}
+
 
 
 void nrerror(error_text)

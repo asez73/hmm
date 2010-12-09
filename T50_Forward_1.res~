@@ -1,0 +1,32 @@
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 512	 65	 5.325600		 36.639893	 27.102051	 29.148926	 27.735840	 25.704102	 20.177979	 17.048828	 16.958008	 
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 1024	 65	 9.922336		 112.036865	 106.507080	 173.824951	 107.920898	 106.018066	 106.950928	 106.023926	 173.595947	 
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 1536	 65	 16.269535		 310.793945	 239.525146	 306.616943	 240.684082	 292.088867	 252.369873	 239.868896	 290.677002	 
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 2048	 65	 21.447071		 518.937012	 477.971924	 514.495117	 547.109131	 554.208008	 546.385010	 546.871826	 560.949951	 
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 2560	 65	 37.626495		 704.871094	 700.745117	 707.307129	 732.114014	 700.656006	 702.875000	 691.498047	 734.277832	 
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 3072	 65	 46.915134		 971.834961	 908.464844	 958.416992	 887.578857	 897.772949	 1011.439941	 901.632080	 905.628906	 
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 3584	 65	 75.118912		 1468.270996	 1479.806885	 1451.713867	 1506.509033	 1448.516846	 1517.312012	 1437.163086	 1565.147949	 
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 4096	 65	 84.222176		 2691.837891	 2680.625000	 2631.711182	 2651.013184	 2663.412109	 2654.889160	 2647.975830	 2653.709229	 
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 4608	 65	 97.889984		 2435.918213	 2439.526855	 2404.237061	 2505.836914	 2429.964111	 2445.942139	 2488.525879	 2460.629150	 
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 5120	 65	 127.436897		 2527.667236	 2476.075928	 2521.545898	 2491.888916	 2522.211914	 2515.256836	 2525.508057	 2519.396973	 
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 5632	 65	 146.510681		 3170.371094	 3188.193848	 3190.691162	 3237.202148	 3199.123047	 3183.477051	 3181.243896	 3170.752930	 
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 6144	 65	 176.199966		 4309.214111	 4254.042236	 4234.475830	 4306.316162	 4239.659912	 4261.654053	 4255.053955	 4197.958984	 
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 6656	 65	 191.173019		 4454.462158	 4470.930908	 4477.018066	 4493.368896	 4489.646973	 4487.500000	 4479.014160	 4460.715820	 
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 7168	 65	 271.643585		 4964.601074	 4953.515137	 4979.912109	 5009.192871	 4983.868896	 4921.338135	 5015.396973	 4995.289062	 
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 7680	 65	 295.326202		 6802.091064	 6720.248047	 6739.729004	 6754.003174	 6737.521973	 6839.330078	 6829.641846	 6774.820801	 
+T	 N	 M	 GeForce GTX 260	 1 threads	 2 threads	 3 threads	 4 threads	 1 threads	 2 threads	 3 threads	 4 threads	 
+50	 8192	 65	 328.449860		 10682.412842	 11534.543945	 10583.029053	 10602.006104	 10649.891113	 10538.846924	 10624.327148	 10579.555908	 

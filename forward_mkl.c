@@ -12,9 +12,43 @@
 #include <stdlib.h>
 #include <string.h>
 #include <mkl.h>
+#include <omp.h>
 #include "hmm.h"
+#include "nrutil.h"
 
-static char rcsid[] = "$Id: forward.c,v 1.2 1998/02/19 12:42:31 kanungo Exp kanungo $";
+//static char rcsid[] = "$Id: forward.c,v 1.2 1998/02/19 12:42:31 kanungo Exp kanungo $";
+
+void Forward(HMM *phmm, int T, int *O, real **alpha, real *pprob);
+void ForwardWithScale(HMM *phmm, int T, int *O, real **alpha, real* scale, real *pprob);
+
+void ForwardMKL_Test_Driver(HMM *phmm, int T, int *O, real **alpha, real *pprob)
+{
+  int nproc = omp_get_max_threads();
+  int p;
+  for (p = 1; p <= nproc; p += 1) 
+    {
+      omp_set_num_threads(p);
+      Forward(phmm, T, O, alpha, pprob);
+
+      //cout<<deviceProp.name<<"\t";
+      //printf("%d threads\t ", p);
+    }             
+}
+
+
+void ForwardScaleMKL_Test_Driver(HMM *phmm, int T, int *O, real **alpha, real* scale, real *pprob)
+{
+  int nproc = omp_get_max_threads();
+  int p;
+  for (p = 1; p <= nproc; p += 1) 
+    {
+      omp_set_num_threads(p);      
+      ForwardWithScale(phmm, T, O, alpha, scale, pprob);      
+      //cout<<deviceProp.name<<"\t";
+      //printf("%d threads\t ", p);
+    }             
+}
+
 
 void Forward(HMM *phmm, int T, int *O, real **alpha, real *pprob)
 {
@@ -55,6 +89,8 @@ void Forward(HMM *phmm, int T, int *O, real **alpha, real *pprob)
   char trans = 'n';
   real alp = 1, beta = 0;
   int incx = 1, incy = 1;
+
+  double delta_time = wallclock();
   for (t = 1; t < T; t++) 
     {     
 
@@ -101,6 +137,9 @@ void Forward(HMM *phmm, int T, int *O, real **alpha, real *pprob)
       /* printf("\n"); */
       /* getchar(); */
     }
+  delta_time = wallclock() - delta_time;
+  printf("%f\t ", delta_time);
+
   
   /* 3. Termination */
   *pprob = 0.0;
@@ -162,6 +201,8 @@ void ForwardWithScale(HMM *phmm, int T, int *O, real **alpha, real* scale, real 
   char trans = 'n';
   real alp = 1, beta = 0;
   int incx = 1, incy = 1;
+
+  double delta_time = wallclock();
   for (t = 1; t < T; t++) 
     {     
 
@@ -186,7 +227,9 @@ void ForwardWithScale(HMM *phmm, int T, int *O, real **alpha, real* scale, real 
       /// scale the alpha vector
       axpy(&N, &factor, buff, &one, buff, &one);
     }
-  
+  delta_time = wallclock() - delta_time;
+  printf("%f\t ", delta_time);
+
 
   /* 3. Termination */
   *pprob = 0.0;

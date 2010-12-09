@@ -12,6 +12,9 @@
 
 #include "hmm.h"
 
+void data_format(HMM *phmm, real** A, real** B, real** pi);
+double wallclock(void);
+
 real *vector();
 real **matrix();
 real **convert_matrix();

@@ -10,85 +10,19 @@
 */
 #include <stdio.h>
 #include "hmm.h"
-#include <cuda_runtime.h>
-#include <cublas.h>
-#include <iostream>
 #include "forward_kernel.cu"
 
-using namespace std;
-//static char rcsid[] = "$Id: forward.c,v 1.2 1998/02/19 12:42:31 kanungo Exp kanungo $";
+static char rcsid[] = "$Id: forward.c,v 1.2 1998/02/19 12:42:31 kanungo Exp kanungo $";
 
 //#ifdef __GPU
 
 extern "C"
-void ForwardGPU(HMM *phmm, int T, int *O, double **alpha, double *pprob);
-
-extern "C"
-void ForwardGPU_Test_Header()
-{
-
-  int deviceCount = 0;
-  if ( cudaGetDeviceCount(&deviceCount) != cudaSuccess )
-    {
-      cerr<<"Error: can't query devices on this machine"<<endl;
-      return;
-    }
-  
-  if ( deviceCount == 0 )
-    {
-      cerr<<"Error: can't find CUDA capable devices on this machine"<<endl;
-      return;
-    }
-  
-  for (int dev = 0; dev < deviceCount; ++dev) 
-    {
-      cudaDeviceProp deviceProp;
-      cudaGetDeviceProperties(&deviceProp, dev);
-      printf("%s\t ", deviceProp.name);
-    }     
-    
-  //cout<<endl;
-}
-
-
-extern "C"
-void ForwardGPU_Test_Driver(HMM *phmm, int T, int *O, real **alpha, real *pprob)
-{
-
-  int deviceCount = 0;
-  if ( cudaGetDeviceCount(&deviceCount) != cudaSuccess )
-    {
-      cerr<<"Error: can't query devices on this machine"<<endl;
-      return;
-    }
-  
-  if ( deviceCount == 0 )
-    {
-      cerr<<"Error: can't find CUDA capable devices on this machine"<<endl;
-      return;
-    }
-  
-  printf("%d\t %d\t %d\t ", T, phmm->N, phmm->M);
-  for (int dev = 0; dev < deviceCount; ++dev) 
-    {
-      //cudaDeviceProp deviceProp;
-      //cudaGetDeviceProperties(&deviceProp, dev);
-      //cout<<deviceProp.name<<"\t"<<endl;
-
-      cudaSetDevice(dev);
-      ForwardGPU(phmm, T, O, alpha, pprob);
-      cudaThreadExit();
-    }     
-}
-
-
-extern "C"
-void ForwardGPU(HMM *phmm, int T, int *O, real **alpha, real *pprob)
+void ForwardGPU(HMM *phmm, int T, int *O, double **alpha, double *pprob)
 {
   int     i, j;   /* state indices */
   int     t;      /* time index */
  
-  real sum;     /* partial sum */
+  double sum;     /* partial sum */
  
   /* 1. Initialization */
  
@@ -123,7 +57,7 @@ void ForwardGPU(HMM *phmm, int T, int *O, real **alpha, real *pprob)
 
   /// timing starts from here, or later if you wish...
   /// initialize the data on GPU
-  //printf("\tRunning GPU accelerated version\n");
+  printf("\tRunning GPU accelerated version\n");
   real *g_A, *g_B, *g_alpha;
 
   /// it turned out that 2D memory allocation is problematic
@@ -136,35 +70,14 @@ void ForwardGPU(HMM *phmm, int T, int *O, real **alpha, real *pprob)
   cudaMemcpy(g_alpha, h_alpha, sizeof(real)*N*T, cudaMemcpyHostToDevice);
   
   /// function signature
-  cudaEvent_t begin, end;
-  cudaEventCreate(&begin);
-  cudaEventCreate(&end);
-
-  cudaEventRecord(begin, 0);
   for (t=1; t<T; ++t)
     {
       //ForwardKernelv1<<<N/32, 32>>>(O[t+1], (g_delta + (t-1)*N), (g_delta + t*N), (g_psi + t*N), g_A, g_B, N);
-      //ForwardKernel<<<N/32, 32>>>(O[t+1], (g_alpha + (t-1)*N), (g_alpha + t*N), g_A, g_B, N);
-      
-      /// dgemv does not support in-place operation thus we need one more buffer
-      //gemv(&trans, &N, &N, &alp, A, &N, buff, &incx, &beta, buff_tmp, &incy);
-      
-      /// Warning: be careful of the B
-      //vMul(N, buff_tmp, &(B[(O[t+1]-1)*N]), buff);
-
-      cublasDgemv('n', N, N, 1.0, g_A, N, g_alpha + (t-1)*N, 1, 0.0, g_alpha + t*N, 1);
-      vMulKernel<<< N/64 + (N/64==0), 32 >>>(N, g_alpha + t*N, g_B + (O[t+1]-1)*N, g_alpha + t*N);
+      ForwardKernel<<<N/32, 32>>>(O[t+1], (g_alpha + (t-1)*N), (g_alpha + t*N), g_A, g_B, N);
     }
-  cudaEventRecord(end, 0);
 
   cudaMemcpy(h_alpha, g_alpha, sizeof(real)*N*T, cudaMemcpyDeviceToHost);
-
-  cudaEventSynchronize(end);
-  float delta_time;
-  cudaEventElapsedTime(&delta_time, begin, end); 
-  //fprintf(stderr, "\n CUDA time elapsed %f, %f GFLOPS\n", delta_time, T*(N+1)*N*1e-6/delta_time);
-  printf("%f\t\t ", delta_time);
-
+ 
   /* /\* 2. Induction *\/ */
  
   /* for (t = 1; t < T; t++)  */

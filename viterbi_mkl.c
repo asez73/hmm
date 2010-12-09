@@ -12,115 +12,200 @@
 
 #include <math.h>
 #include "hmm.h"
+#include <omp.h>
 #include "nrutil.h"
+
 static char rcsid[] = "$Id: viterbi.c,v 1.1 1999/05/06 05:25:37 kanungo Exp kanungo $";
 
 #define VITHUGE  100000000000.0
 
-void Viterbi(HMM *phmm, int T, int *O, real **delta, int **psi, 
-	     int *q, real *pprob)
+
+void Viterbi(HMM *phmm, int T, int *O, real **delta, int **psi, int *q, real *pprob);
+
+void ViterbiMKL_Test_Driver(HMM *phmm, int T, int *O, real **delta, int **psi, int *q, real *pprob)
+{
+  int nproc = omp_get_max_threads();
+  int p;
+  for (p = 1; p <= nproc; p += 1) 
+    {
+      omp_set_num_threads(p);
+      Viterbi(phmm, T, O, delta, psi, q, pprob);
+
+      //cout<<deviceProp.name<<"\t";
+      //printf("%d threads\t ", p);
+    }             
+}
+
+
+/// simplified version
+real hViterbi(int N, int M, real* A, real* B, real* pi, int T, int *query, int *q)
 {
   int 	i, j;	/* state indices */
   int  	t;	/* time index */	
 
   int	maxvalidx;
-  real	maxval, val;
-  
+  real	maxval;
+    
+  //#pragma omp parallel 
+  int nproc = omp_get_max_threads();
 
-  int N = phmm->N;
-  int M = phmm->M;
-  real* A = (real*)malloc(N*N*sizeof(real));
-  //real* B = (real*)malloc(N*M*sizeof(real));
-  real* buff = (real*)malloc(N*sizeof(real));
+  fprintf(stderr, "%d omp threads\n", nproc);
+  
+  //real* buff = (real*)malloc(N*sizeof(real));
+  real* buff = (real*)malloc(N*sizeof(real)*nproc);
+  
   real* delta_prev = (real*)malloc(N*sizeof(real));
   real* delta_curr = (real*)malloc(N*sizeof(real));
+  int* psi = (int*)malloc(N*T*sizeof(int));
 
   /* 1. Initialization  */
-	
-  for (i = 1; i <= phmm->N; i++) 
-    {
-      delta_prev[i-1] = delta[1][i] = phmm->pi[i] * (phmm->B[i][O[1]]);
-      psi[1][i] = 0;
-    }	
+  for (i = 0; i < N; ++i)
+    delta_prev[i] = pi[i] * B[(query[0]-1)*N + i];
+  memset((void*)psi, 0, sizeof(int)*N);
 
-
-  /* for ( i=0; i<N; ++i ) */
-  /*   buff[i] = alpha[1][i+1]; */
-  
-  // marshal the data
-  for (i=0; i<N; ++i)
-    for (j=0; j<N; ++j)
-      A[j*N+i] = phmm->A[i+1][j+1];
   
   /* 2. Recursion */
-	
-  for (t = 2; t <= T; t++) 
+  double delta_time = wallclock();
+  for (t = 1; t < T; ++t)
     {
-      for (j = 1; j <= N; j++) 
-	{
-	  /// old code
-	  /* maxval = 0.0; */
-	  /* maxvalidx = 1; */
-	  /* for (i = 1; i <= phmm->N; i++) */
-	  /*   { */
-	  /*     //val = delta[t-1][i]*(phmm->A[i][j]); */
-	  /*     //val = delta[t-1][i] * A[(j-1)*N + i-1]; */
-	  /*     val = delta_prev[i-1] * A[(j-1)*N + i-1]; */
+#pragma omp parallel for
+      for (j = 0; j < N; ++j)
+  	{	  
+	  int tid = omp_get_thread_num();
+	  real* local_buff = buff + tid * N;
+  	  vdMul(N, delta_prev, (A + j*N), local_buff);
+  	  int one = 1;
+  	  maxvalidx = idamax(&N, local_buff, &one);
 
-	  /*     if (val > maxval) */
-	  /* 	{ */
-	  /* 	  maxval = val; */
-	  /* 	  maxvalidx = i; */
-	  /* 	} */
-	  /*   } */
-
-	  /* printf("maxval: %f, maxidx %d\n", maxval, maxvalidx); */
-
-	  /* delta_curr[j-1] = maxval*(phmm->B[j][O[t]]); */
-	  /* psi[t][j] = maxvalidx; */
-
-	  /// new code
-	  
-	  vdMul(N, delta_prev, (A + (j-1)*N), buff);
-	  int one = 1;
-	  maxvalidx = idamax(&N, buff, &one);
-	  
-	  /* for (i=0; i<N; ++i) */
-	  /*   printf("%f ", buff[i]); */
-	  /* printf("\n"); */
-	  //printf("maxval: %f, maxidx %d\n\n", buff[maxvalidx-1], maxvalidx); 
-	 	  
-	  delta_curr[j-1] = buff[maxvalidx-1] * (phmm->B[j][O[t]]); 
-	  psi[t][j] = maxvalidx; 
-	}
+  	  delta_curr[j] = local_buff[maxvalidx-1] * B[(query[t]-1)*N + j];
+  	  psi[t*N + j] = maxvalidx;
+  	}
 
       real* tmp = delta_prev;
       delta_prev = delta_curr;
       delta_curr = tmp;
-     	  
     }
+  delta_time = wallclock() - delta_time;
+  printf("%f\t ", delta_time);
+
   
   /* 3. Termination */
-
-  *pprob = 0.0;
-  q[T] = 1;
-  for (i = 1; i <= phmm->N; i++)
+  real prob = 0.0;
+  q[T-1] = 1;
+  for (i = 0; i < N; ++i)
     {
-      //if (delta[T][i] > *pprob) 
-      if (delta_prev[i-1] > *pprob) 
-	{
-	  //*pprob = delta[T][i];	
-	  *pprob = delta_prev[i-1];	
-	  q[T] = i;
-	}
+      if (delta_prev[i] > prob)
+  	{
+  	  prob = delta_prev[i];
+  	  q[T-1] = i+1;
+  	}
     }
-  
-  /* 4. Path (state sequence) backtracking */
-  
-  for (t = T - 1; t >= 1; t--)
-    q[t] = psi[t+1][q[t+1]];
 
+  //fprintf(stderr, "state sequence\n\t%d", q[T-1]);
+  for (t = T - 2; t >= 0; --t)
+    q[t] = psi[(t+1)*N + q[t+1]-1];
+    //fprintf(stderr, "-> %d",q[t] = psi[(t+1)*N + q[t+1]-1]);
+  //fprintf(stderr, "\n");
+
+  
+  free(buff);
+  free(delta_prev);
+  free(delta_curr);
+  free(psi);
+
+  return prob;
 }
+
+
+real hViterbiLog(int N, int M, real* A, real* B, real* pi, int T, int *query, int *q)
+{
+  int 	i, j;	/* state indices */
+  int  	t;	/* time index */	
+
+  int	maxvalidx;
+  real	maxval;
+  
+  real* buff = (real*)malloc(N*sizeof(real));
+  real* delta_prev = (real*)malloc(N*sizeof(real));
+  real* delta_curr = (real*)malloc(N*sizeof(real));
+  int* psi = (int*)malloc(N*T*sizeof(int));
+
+  /* 1. Initialization  */
+  for (i = 0; i < N; ++i)
+    delta_prev[i] = pi[i] + B[(query[0]-1)*N + i];
+  memset((void*)psi, 0, sizeof(int)*N);
+  
+  /* 2. Recursion */
+  double delta_time = wallclock();
+  for (t = 1; t < T; ++t)
+    {
+      for (j = 0; j < N; ++j)
+  	{
+	  vdAdd(N, delta_prev, (A + j*N), buff);
+  	  int one = 1;
+  	  maxvalidx = idamax(&N, buff, &one);
+
+  	  delta_curr[j] = buff[maxvalidx-1] + B[(query[t]-1)*N + j];
+  	  psi[t*N + j] = maxvalidx;
+  	}
+
+      real* tmp = delta_prev;
+      delta_prev = delta_curr;
+      delta_curr = tmp;
+    }
+  delta_time = wallclock() - delta_time;
+  printf("%f\t ", delta_time);
+  
+
+  
+  /* 3. Termination */
+  real prob = -VITHUGE;
+  q[T-1] = 1;
+  for (i = 0; i < N; ++i)
+    {
+      if (delta_prev[i] > prob)
+  	{
+  	  prob = delta_prev[i];
+  	  q[T-1] = i+1;
+  	}
+    }
+
+  //fprintf(stderr, "state sequence\n\t%d", q[T-1]);
+  for (t = T - 2; t >= 0; --t)
+    q[t] = psi[(t+1)*N + q[t+1]-1];
+    //fprintf(stderr, "-> %d",q[t] = psi[(t+1)*N + q[t+1]-1]);
+  //fprintf(stderr, "\n");
+
+  
+  free(buff);
+  free(delta_prev);
+  free(delta_curr);
+  free(psi);
+
+  return prob;
+}
+
+
+
+
+void Viterbi(HMM *phmm, int T, int *O, real **delta, int **psi, 
+	     int *q, real *pprob)
+{
+  real *A, *B, *pi;
+  //int* q = (int*)malloc(T*sizeof(int));
+  data_format(phmm, &A, &B, &pi);
+
+  //double delta_time = wallclock();
+  *pprob = hViterbi(phmm->N, phmm->M, A, B, pi, T, O+1, q+1);
+  //delta_time = wallclock() - delta_time;
+  //printf("%f\t ", delta_time);
+
+  //printf("dsadwjadwa\n");
+  free(A);
+  free(B);
+  free(pi);
+}
+
 
 
 void ViterbiLog(HMM *phmm, int T, int *O, real **delta, int **psi,
@@ -133,64 +218,75 @@ void ViterbiLog(HMM *phmm, int T, int *O, real **delta, int **psi,
   real  maxval, val;
   real  **biot;
 
-  /* 0. Preprocessing */
 
-  for (i = 1; i <= phmm->N; i++) 
-    phmm->pi[i] = log(phmm->pi[i]);
-  for (i = 1; i <= phmm->N; i++) 
-    for (j = 1; j <= phmm->N; j++) {
-      phmm->A[i][j] = log(phmm->A[i][j]);
-    }
+  real *A, *B, *pi;
+  //int* q = (int*)malloc(T*sizeof(int));
+  data_format_log(phmm, &A, &B, &pi);  
 
-  biot = dmatrix(1, phmm->N, 1, T);
-  for (i = 1; i <= phmm->N; i++) 
-    for (t = 1; t <= T; t++) {
-      biot[i][t] = log(phmm->B[i][O[t]]);
-    }
- 
-  /* 1. Initialization  */
- 
-  for (i = 1; i <= phmm->N; i++) {
-    delta[1][i] = phmm->pi[i] + biot[i][1];
-    psi[1][i] = 0;
-  }
- 
-  /* 2. Recursion */
- 
-  for (t = 2; t <= T; t++) {
-    for (j = 1; j <= phmm->N; j++) {
-      maxval = -VITHUGE;
-      maxvalind = 1;
-      for (i = 1; i <= phmm->N; i++) {
-	val = delta[t-1][i] + (phmm->A[i][j]);
-	if (val > maxval) {
-	  maxval = val;
-	  maxvalind = i;
-	}
-      }
- 
-      delta[t][j] = maxval + biot[j][t]; 
-      psi[t][j] = maxvalind;
- 
-    }
-  }
- 
-  /* 3. Termination */
- 
-  *pprob = -VITHUGE;
-  q[T] = 1;
-  for (i = 1; i <= phmm->N; i++) {
-    if (delta[T][i] > *pprob) {
-      *pprob = delta[T][i];
-      q[T] = i;
-    }
-  }
- 
- 
-  /* 4. Path (state sequence) backtracking */
+  *pprob = hViterbiLog(phmm->N, phmm->M, A, B, pi, T, O+1, q+1);
 
-  for (t = T - 1; t >= 1; t--)
-    q[t] = psi[t+1][q[t+1]];
+  free(A);
+  free(B);
+  free(pi);
+
+
+  /* /\* 0. Preprocessing *\/ */
+
+  /* for (i = 1; i <= phmm->N; i++)  */
+  /*   phmm->pi[i] = log(phmm->pi[i]); */
+  /* for (i = 1; i <= phmm->N; i++)  */
+  /*   for (j = 1; j <= phmm->N; j++) { */
+  /*     phmm->A[i][j] = log(phmm->A[i][j]); */
+  /*   } */
+
+  /* biot = dmatrix(1, phmm->N, 1, T); */
+  /* for (i = 1; i <= phmm->N; i++)  */
+  /*   for (t = 1; t <= T; t++) { */
+  /*     biot[i][t] = log(phmm->B[i][O[t]]); */
+  /*   } */
+ 
+  /* /\* 1. Initialization  *\/ */
+ 
+  /* for (i = 1; i <= phmm->N; i++) { */
+  /*   delta[1][i] = phmm->pi[i] + biot[i][1]; */
+  /*   psi[1][i] = 0; */
+  /* } */
+ 
+  /* /\* 2. Recursion *\/ */
+ 
+  /* for (t = 2; t <= T; t++) { */
+  /*   for (j = 1; j <= phmm->N; j++) { */
+  /*     maxval = -VITHUGE; */
+  /*     maxvalind = 1; */
+  /*     for (i = 1; i <= phmm->N; i++) { */
+  /* 	val = delta[t-1][i] + (phmm->A[i][j]); */
+  /* 	if (val > maxval) { */
+  /* 	  maxval = val; */
+  /* 	  maxvalind = i; */
+  /* 	} */
+  /*     } */
+ 
+  /*     delta[t][j] = maxval + biot[j][t];  */
+  /*     psi[t][j] = maxvalind;  */
+  /*   } */
+  /* } */
+ 
+  /* /\* 3. Termination *\/ */
+ 
+  /* *pprob = -VITHUGE; */
+  /* q[T] = 1; */
+  /* for (i = 1; i <= phmm->N; i++) { */
+  /*   if (delta[T][i] > *pprob) { */
+  /*     *pprob = delta[T][i]; */
+  /*     q[T] = i; */
+  /*   } */
+  /* } */
+ 
+ 
+  /* /\* 4. Path (state sequence) backtracking *\/ */
+
+  /* for (t = T - 1; t >= 1; t--) */
+  /*   q[t] = psi[t+1][q[t+1]]; */
 
 }
  

@@ -13,22 +13,11 @@
 #include "hmm.h"
 
 
-__global__ void vMulKernel(int N, real* vec1, real* vec2, real* vec_out)
-{
-  int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  int pb_stride = blockDim.x * gridDim.x;
-  for ( int i=idx; i<N; i += pb_stride )
-    {
-      vec_out[i] = vec1[i] * vec2[i];
-    }
-}
-
-
 //#define real float
 
 /// this kernel deals with 
 /**
- *\brief Forward O(N^2) inner loop
+ *\brief Viterbi O(N^2) inner loop
  *
  *\param Symbol the T-th observed symbol
  *\param delta_prev previous delta vector
@@ -37,7 +26,7 @@ __global__ void vMulKernel(int N, real* vec1, real* vec2, real* vec_out)
  *\param B the state emission matrix, in column major order
  *\param N number of states
  */
-__global__ void ForwardKernel(int Symbol, real* alpha_prev, real* alpha_curr, real* A, real *B, size_t N)
+__global__ void ViterbiKernel(int Symbol, real* delta_prev, real* delta_curr, int* psi_curr, real* A, real *B, size_t N)
 {
   /// compute the distribution of threads
   /// using 1D layout  
@@ -49,14 +38,20 @@ __global__ void ForwardKernel(int Symbol, real* alpha_prev, real* alpha_curr, re
   // each thread to be fixed at the tid-th column
   for ( int j=idx; j<N; j += pb_stride )
     { 
-      real sumval = 0.0;
-      //real maxvalidx = 1;
+      real maxval = 0.0;
+      real maxvalidx = 1;
       for ( int i=0; i<N; ++i )
 	{
-	  sumval += alpha_prev[i] * A[j*N + i];
+	  real tmp = delta_prev[i] * A[j*N + i];
+	  if ( maxval < tmp )
+	    {
+	       maxval = tmp;
+	       /// Waring: the index must be incremented
+	       maxvalidx = i + 1;
+	    }
 	}
-
-      alpha_curr[j] = sumval * B[ (Symbol-1)*N + j ];
+      delta_curr[j] = maxval * B[ (Symbol-1)*N + j ];
+      psi_curr[j] = maxvalidx;      
     }  
 }
 
@@ -76,7 +71,7 @@ __global__ void ForwardKernel(int Symbol, real* alpha_prev, real* alpha_curr, re
  *\param B the state emission matrix, in column major order
  *\param N number of states
  */
-__global__ void ForwardKernelv1(int Symbol, real* alpha_prev, real* alpha_curr, real* A, real *B, size_t N)
+__global__ void ViterbiKernelv1(int Symbol, real* delta_prev, real* delta_curr, int* psi_curr, real* A, real *B, size_t N)
 {
   /// compute the distribution of threads
   /// using 1D layout  
@@ -88,18 +83,16 @@ __global__ void ForwardKernelv1(int Symbol, real* alpha_prev, real* alpha_curr, 
   const int num_threads = 32;
   __shared__ real maxvalist[num_threads];
   __shared__ int maxvalidx_list[num_threads];
-    
 
+  /// each thread to be fixed at the tid-th column
+  register real maxval = 0.0;
+  register real maxvalidx = 1;
+    
   for ( int j=blockIdx.x; j<N; j += pb_stride )
     { 
-
-      /// each thread to be fixed at the tid-th column
-      real maxval = 0.0;
-      real maxvalidx = 1;
-      
       for ( int i=threadIdx.x; i<N; i += blockDim.x )
 	{
-	  real tmp = alpha_prev[i] * A[j*N + i];
+	  real tmp = delta_prev[i] * A[j*N + i];
 	  if ( maxval < tmp )
 	    {
 	       maxval = tmp;
@@ -126,7 +119,8 @@ __global__ void ForwardKernelv1(int Symbol, real* alpha_prev, real* alpha_curr, 
 		}
 	    }
 	  
-	  alpha_curr[j] = maxval * B[ (Symbol-1)*N + j ];
+	  delta_curr[j] = maxval * B[ (Symbol-1)*N + j ];
+	  psi_curr[j] = maxvalidx;      
 	}
     }  
 }

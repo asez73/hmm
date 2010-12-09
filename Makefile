@@ -9,20 +9,20 @@
 
 # single precision just doesn't work here...
 CC=icc
-CFLAGS= -O3 -D__GPU -D__DOUBLE 
+CFLAGS= -O3 -D__GPU -D__DOUBLE
 INCS=
 # use the following line to "Purify" the code
 #CC=purify gcc
 
-CUDA_MAKEFILE_L = -L/user/local/cuda/lib
-CUDA_MAKEFILE_I = -I/user/local/cuda/include
+#CUDA_MAKEFILE_L = -L/user/local/cuda/lib64 -L/usr/local/cuda/lib
+#CUDA_MAKEFILE_I = -I/user/local/cuda/include
 LN_FLAGS = -L/opt/intel/composerxe-2011.0.084/mkl/lib/intel64 
 
 #MKL_FLAGS = -Wl,--start-group libmkl_intel_lp64.a libmkl_intel_thread.a libmkl_core.a libiomp5.a -Wl,--end-group -lpthread -lm
-MKL_FLAGS = lmkl_intel_lp64 lmkl_intel_thread lmkl_core liomp5 -lpthread -lm
+MKL_FLAGS = -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -openmp
 #-fopenmp
 
-CUDA_FLAGS = -O3 -lcuda -lcudart 
+CUDA_FLAGS = -O3 -lcuda -lcudart -lcublas
 
 
 SRCS=baum.c viterbi.c forward.c backward.c hmmutils.c sequence.c \
@@ -41,8 +41,18 @@ all : $(EXE)
 # viterbi_kernel.o: viterbi_kernel.cu 
 # 	nvcc -c $^ $(CUDA_MAKEFILE_I) -arch=sm_13 -Xcompiler $(CFLAGS)
 
+viterbi_mkl.o: viterbi_mkl.c
+	$(CC) -c -openmp $^ $(CFLAGS)
+
+perftest_vit.o: perftest_vit.c
+	$(CC) -c -openmp $^ $(CFLAGS)
+
+perftest_for.o: perftest_for.c
+	$(CC) -c -openmp $^ $(CFLAGS)
+#	nvcc -c $^ $(CUDA_MAKEFILE_I) -Xcompiler $(CFLAGS)
+
 viterbi_gpu.o: viterbi_gpu.cu viterbi_kernel.cu
-	nvcc -c $^ $(CUDA_MAKEFILE_I) -arch=sm_13 -Xcompiler $(CFLAGS)
+	nvcc -c $^ $(CUDA_MAKEFILE_I) -arch=sm_13 -Xcompiler $(CFLAGS) 
 
 forward_gpu.o: forward_gpu.cu forward_kernel.cu
 	nvcc -c $^ $(CUDA_MAKEFILE_I) -arch=sm_13 -Xcompiler $(CFLAGS)
